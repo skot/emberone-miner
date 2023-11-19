@@ -534,9 +534,10 @@ class Miner(SimpleJsonRpcClient):
         if 'result' not in reply or len(reply['result']) != 3:
           raise self.MinerWarning('Reply to mining.subscribe is malformed', reply, request)
 
-
-
         (tmp, extranonce1, extranonce2_size) = reply['result']
+
+        if not isinstance(tmp, list) or len(tmp) != 2:
+          raise self.MinerWarning('Reply to mining.subscribe is malformed', reply, request)
 
         (mining_notify, subscription_id) = tmp[0]
 
