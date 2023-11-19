@@ -20,19 +20,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import binascii, json, hashlib, socket, struct, sys, threading, time, urlparse
-
+import binascii, json, hashlib, socket, struct, sys, threading, time
+from urllib import parse as urlparse
 
 USER_AGENT = "PyMiner"
 VERSION = [0, 1]
 
 
 # Which algorithm for proof-of-work to use
-ALGORITHM_SCRYPT      = 'scrypt'
 ALGORITHM_SHA256D     = 'sha256d'
-ALGORITHM_YESCRYPT    = 'yescrypt'
 
-ALGORITHMS = [ ALGORITHM_SCRYPT, ALGORITHM_SHA256D, ALGORITHM_YESCRYPT ]
+ALGORITHMS = [ ALGORITHM_SHA256D ]
 
 
 # Verbosity and log level
@@ -46,24 +44,8 @@ LEVEL_DEBUG     = 'debug'
 LEVEL_ERROR     = 'error'
 
 
-# These control which scrypt implementation to use
-SCRYPT_LIBRARY_C = 'scrypt (https://github.com/forrestv/p2pool)'
-SCRYPT_LIBRARIES = [ SCRYPT_LIBRARY_C ]
 
-YESCRYPT_LIBRARY_C      = 'https://password-hashing.net/submissions/yescrypt-v1.tar.gz'
-YESCRYPT_LIBRARIES = [ YESCRYPT_LIBRARY_C ]
-
-WELCOME_MSG = ("If you have found this software useful and would like to support its future\n"
-               "development, please, feel free to donate:\n\n"
-               "   BTC: 1HKWV5t4KGUwybVHNUaaY9TXFSoBvoaSiP\n"
-               "   ETH: 0xF17e490B391E17BE2D14BFfaA831ab8966d2e689\n"
-               "   LTC: LNSEJzT8byYasZGd4f9c3DgtMbmexnXHdy\n"
-               "   BCH: 1AVXvPBrNdhTdwBN5VQT5LSHa7sEzMSia4\n"
-               "   XEM: NB3NDXRBOLEJLPT6MP6JAD4EZEOX5TFLDG3WR7JJ\n"
-               "   MONA: MPq54r8XTwtB2qmAeVqayy27ZCaPt845B6\n"
-               "   KOTO: k1GHJkvxLQocac94MFBbKAsdUvNbFdFWUyE\n"
-               "   NEET: NYaP7eEsDdALK5eHPZkYk1d8pBLyGvq9L1\n\n"
-               "Happy mining!")
+WELCOME_MSG = ("Happy mining!")
 
 def log(message, level):
   '''Conditionally write a message to stdout based on command line options and level.'''
@@ -100,12 +82,20 @@ def swap_endian_word(hex_word):
   return message[::-1]
 
 
-def swap_endian_words(hex_words):
-  '''Swaps the endianness of a hexidecimal string of words and converts to binary string.'''
+# def swap_endian_words(hex_words):
+#   '''Swaps the endianness of a hexidecimal string of words and converts to binary string.'''
 
-  message = unhexlify(hex_words)
-  if len(message) % 4 != 0: raise ValueError('Must be 4-byte word aligned')
-  return ''.join([ message[4 * i: 4 * i + 4][::-1] for i in range(0, len(message) // 4) ])
+#   message = unhexlify(hex_words)
+#   if len(message) % 4 != 0: raise ValueError('Must be 4-byte word aligned')
+#   return ''.join([ message[4 * i: 4 * i + 4][::-1] for i in range(0, len(message) // 4) ])
+
+def swap_endian_words(hex_words):
+    '''Swaps the endianness of a hexadecimal string of words and keeps as binary data.'''
+    message = unhexlify(hex_words)
+    if len(message) % 4 != 0:
+        raise ValueError('Must be 4-byte word aligned')
+    return b''.join([message[4 * i: 4 * i + 4][::-1] for i in range(len(message) // 4)])
+
 
 
 def human_readable_hashrate(hashrate):
@@ -118,21 +108,6 @@ def human_readable_hashrate(hashrate):
   if hashrate < 10000000000:
     return '%2f Mhashes/s' % (hashrate / 1000000)
   return '%2f Ghashes/s' % (hashrate / 1000000000)
-
-
-SCRYPT_LIBRARY = None
-scrypt_proof_of_work = None
-def set_scrypt_library():
-  '''Sets the scrypt library implementation to use.'''
-
-  global SCRYPT_LIBRARY
-  global scrypt_proof_of_work
-
-  import scrypt
-  scrypt_proof_of_work = scrypt.getPoWHash
-  SCRYPT_LIBRARY = SCRYPT_LIBRARY_C
-
-set_scrypt_library()
 
 
 class Job(object):
@@ -245,14 +220,14 @@ class Job(object):
     t0 = time.time()
 
     # @TODO: test for extranonce != 0... Do I reverse it or not?
-    for extranonce2 in xrange(self._max_nonce):
+    for extranonce2 in range(self._max_nonce):
 
       # Must be unique for any given job id, according to http://mining.bitcoin.cz/stratum-mining/ but never seems enforced?
       extranonce2_bin = struct.pack('<I', extranonce2)
 
       merkle_root_bin = self.merkle_root_bin(extranonce2_bin)
       header_prefix_bin = swap_endian_word(self._version) + swap_endian_words(self._prevhash) + merkle_root_bin + swap_endian_word(self._ntime) + swap_endian_word(self._nbits)
-      for nonce in xrange(nonce_start, self._max_nonce, nonce_stride):
+      for nonce in range(nonce_start, self._max_nonce, nonce_stride):
         # This job has been asked to stop
         if self._done:
           self._dt += (time.time() - t0)
@@ -260,15 +235,16 @@ class Job(object):
 
         # Proof-of-work attempt
         nonce_bin = struct.pack('<I', nonce)
-        pow = self.proof_of_work(header_prefix_bin + nonce_bin)[::-1].encode('hex')
+        #pow = self.proof_of_work(header_prefix_bin + nonce_bin)[::-1].encode('hex')
+        pow = hexlify(sha256d(header_prefix_bin + nonce_bin)[::-1]).decode("utf8")
 
         # Did we reach or exceed our target?
         if pow <= self.target:
           result = dict(
             job_id = self.id,
-            extranonce2 = hexlify(extranonce2_bin),
+            extranonce2 = hexlify(extranonce2_bin).decode("utf8"),
             ntime = str(self._ntime),                    # Convert to str from json unicode
-            nonce = hexlify(nonce_bin[::-1])
+            nonce = hexlify(nonce_bin[::-1]).decode("utf8")
           )
           self._dt += (time.time() - t0)
 
@@ -287,7 +263,7 @@ class Job(object):
 class Subscription(object):
   '''Encapsulates the Subscription state from the JSON-RPC server'''
 
-  _max_nonce = None
+  _max_nonce = 0x7fffffff
 
   # Subclasses should override this
   def ProofOfWork(header):
@@ -371,21 +347,8 @@ class Subscription(object):
       max_nonce=self._max_nonce,
     )
 
-
   def __str__(self):
     return '<Subscription id=%s, extranonce1=%s, extranonce2_size=%d, difficulty=%d worker_name=%s>' % (self.id, self.extranonce1, self.extranonce2_size, self.difficulty, self.worker_name)
-
-
-class SubscriptionScrypt(Subscription):
-  '''Subscription for Scrypt-based coins, like Litecoin.'''
-
-  ProofOfWork = lambda s, h: scrypt_proof_of_work(h)
-  _max_nonce = 0x7fffffff
-
-  def _set_target(self, target):
-    # Why multiply by 2**16? See: https://litecoin.info/Mining_pool_comparison
-    self._target = '%064x' % (target << 16)
-
 
 class SubscriptionSHA256D(Subscription):
   '''Subscription for Double-SHA256-based coins, like Bitcoin.'''
@@ -393,22 +356,9 @@ class SubscriptionSHA256D(Subscription):
   ProofOfWork = sha256d
 
 
-class SubscriptionYescrypt(Subscription):
-  '''Subscription for Yescrypt-based coins.'''
-
-  import yescrypt
-  ProofOfWork = yescrypt.getPoWHash
-  _max_nonce = 0x3fffff
-
-  def _set_target(self, target):
-    self._target = '%064x' % (target << 16)
-
-
 # Maps algorithms to their respective subscription objects
 SubscriptionByAlgorithm = {
-  ALGORITHM_SCRYPT: SubscriptionScrypt,
   ALGORITHM_SHA256D: SubscriptionSHA256D,
-  ALGORITHM_YESCRYPT: SubscriptionYescrypt,
 }
 
 
@@ -457,6 +407,7 @@ class SimpleJsonRpcClient(object):
         (line, data) = data.split('\n', 1)
       else:
         chunk = self._socket.recv(1024)
+        chunk = chunk.decode('utf-8')
         data += chunk
         continue
 
@@ -465,7 +416,7 @@ class SimpleJsonRpcClient(object):
       # Parse the JSON
       try:
         reply = json.loads(line)
-      except Exception, e:
+      except Exception as e:
         log("JSON-RPC Error: Failed to parse JSON %r (skipping)" % line, LEVEL_ERROR)
         continue
 
@@ -475,14 +426,14 @@ class SimpleJsonRpcClient(object):
           if 'id' in reply and reply['id'] in self._requests:
             request = self._requests[reply['id']]
           self.handle_reply(request = request, reply = reply)
-      except self.RequestReplyWarning, e:
-        output = e.message
+      except self.RequestReplyWarning as e:
+        output = str(e)
         if e.request:
           try:
             output += '\n  ' + e.request
           except TypeError:
             output += '\n  ' + str(e.request)
-        output += '\n  ' + e.reply
+        output += '\n  ' + str(e.reply)
         log(output, LEVEL_ERROR)
 
 
@@ -502,7 +453,8 @@ class SimpleJsonRpcClient(object):
     with self._lock:
       self._requests[self._message_id] = request
       self._message_id += 1
-      self._socket.send(message + '\n')
+      self._socket.send((message + '\n').encode('utf-8'))
+
 
     log('JSON-RPC Server < ' + message, LEVEL_PROTOCOL)
 
@@ -532,7 +484,7 @@ class Miner(SimpleJsonRpcClient):
 
   class MinerAuthenticationException(SimpleJsonRpcClient.RequestReplyException): pass
 
-  def __init__(self, url, username, password, algorithm=ALGORITHM_YESCRYPT):
+  def __init__(self, url, username, password, algorithm=ALGORITHM_SHA256D):
     SimpleJsonRpcClient.__init__(self)
 
     self._url = url
@@ -579,10 +531,14 @@ class Miner(SimpleJsonRpcClient):
 
       # ...subscribe; set-up the work and request authorization
       if request.get('method') == 'mining.subscribe':
-        if 'result' not in reply or len(reply['result']) != 3 or len(reply['result'][0]) != 2:
+        if 'result' not in reply or len(reply['result']) != 3:
           raise self.MinerWarning('Reply to mining.subscribe is malformed', reply, request)
 
-        ((mining_notify, subscription_id), extranonce1, extranonce2_size) = reply['result']
+
+
+        (tmp, extranonce1, extranonce2_size) = reply['result']
+
+        (mining_notify, subscription_id) = tmp[0]
 
         self._subscription.set_subscription(subscription_id, extranonce1, extranonce2_size)
 
@@ -644,7 +600,7 @@ class Miner(SimpleJsonRpcClient):
           self.send(method = 'mining.submit', params = params)
           log("Found share: " + str(params), LEVEL_INFO)
         log("Hashrate: %s" % human_readable_hashrate(job.hashrate), LEVEL_INFO)
-      except Exception, e:
+      except Exception as e:
         log("ERROR: %s" % e, LEVEL_ERROR)
 
     thread = threading.Thread(target = run, args = (self._job, ))
@@ -678,52 +634,6 @@ class Miner(SimpleJsonRpcClient):
     while True:
       time.sleep(10)
 
-
-def test_subscription():
-  '''Test harness for mining, using a known valid share.'''
-
-  log('TEST: Scrypt algorithm = %r' % SCRYPT_LIBRARY, LEVEL_DEBUG)
-  log('TEST: Testing Subscription', LEVEL_DEBUG)
-
-  subscription = SubscriptionScrypt()
-
-  # Set up the subscription
-  reply = json.loads('{"error": null, "id": 1, "result": [["mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"], "f800880e", 4]}')
-  log('TEST: %r' % reply, LEVEL_DEBUG)
-  ((mining_notify, subscription_id), extranonce1, extranonce2_size) = reply['result']
-  subscription.set_subscription(subscription_id, extranonce1, extranonce2_size)
-
-  # Set the difficulty
-  reply = json.loads('{"params": [32], "id": null, "method": "mining.set_difficulty"}')
-  log('TEST: %r' % reply, LEVEL_DEBUG)
-  (difficulty, ) = reply['params']
-  subscription.set_difficulty(difficulty)
-
-  # Create a job
-  reply = json.loads('{"params": ["1db7", "0b29bfff96c5dc08ee65e63d7b7bab431745b089ff0cf95b49a1631e1d2f9f31", "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2503777d07062f503253482f0405b8c75208", "0b2f436f696e48756e74722f0000000001603f352a010000001976a914c633315d376c20a973a758f7422d67f7bfed9c5888ac00000000", ["f0dbca1ee1a9f6388d07d97c1ab0de0e41acdf2edac4b95780ba0a1ec14103b3", "8e43fd2988ac40c5d97702b7e5ccdf5b06d58f0e0d323f74dd5082232c1aedf7", "1177601320ac928b8c145d771dae78a3901a089fa4aca8def01cbff747355818", "9f64f3b0d9edddb14be6f71c3ac2e80455916e207ffc003316c6a515452aa7b4", "2d0b54af60fad4ae59ec02031f661d026f2bb95e2eeb1e6657a35036c017c595"], "00000002", "1b148272", "52c7b81a", true], "id": null, "method": "mining.notify"}')
-  log('TEST: %r' % reply, LEVEL_DEBUG)
-  (job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime, clean_jobs) = reply['params']
-  job = subscription.create_job(
-    job_id = job_id,
-    prevhash = prevhash,
-    coinb1 = coinb1,
-    coinb2 = coinb2,
-    merkle_branches = merkle_branches,
-    version = version,
-    nbits = nbits,
-    ntime = ntime
-  )
-
-  # Scan that job (if I broke something, this will run for a long time))
-  for result in job.mine(nonce_start = 1210450368 - 3):
-    log('TEST: found share - %r' % repr(result), LEVEL_DEBUG)
-    break
-
-  valid = { 'ntime': '52c7b81a', 'nonce': '482601c0', 'extranonce2': '00000000', 'job_id': u'1db7' }
-  log('TEST: Correct answer %r' % valid, LEVEL_DEBUG)
-
-
-
 # CLI for cpu mining
 if __name__ == '__main__':
   import argparse
@@ -741,7 +651,7 @@ if __name__ == '__main__':
 
   parser.add_argument('-O', '--userpass', help = 'username:password pair for mining server', metavar = "USERNAME:PASSWORD")
 
-  parser.add_argument('-a', '--algo', default = ALGORITHM_SCRYPT, choices = ALGORITHMS, help = 'hashing algorithm to use for proof of work')
+  parser.add_argument('-a', '--algo', default = ALGORITHM_SHA256D, choices = ALGORITHMS, help = 'hashing algorithm to use for proof of work')
 
   parser.add_argument('-B', '--background', action ='store_true', help = 'run in the background as a daemon')
 
@@ -765,30 +675,20 @@ if __name__ == '__main__':
     else:
       try:
         (username, password) = options.userpass.split(':')
-      except Exception, e:
+      except Exception as e:
         message = 'Could not parse username:password for -O/--userpass'
 
   # Was there an issue? Show the help screen and exit.
   if message:
     parser.print_help()
-    print
-    print message
+    print()
+    print(message)
     sys.exit(1)
 
   # Set the logging level
   if options.debug:DEBUG = True
   if options.protocol: DEBUG_PROTOCOL = True
   if options.quiet: QUIET = True
-
-  if DEBUG:
-    for library in SCRYPT_LIBRARIES:
-      set_scrypt_library()
-      test_subscription()
-
-    # Set us to a faster library if available
-    set_scrypt_library()
-    if options.algo == ALGORITHM_SCRYPT:
-      log('Using scrypt library %r' % SCRYPT_LIBRARY, LEVEL_DEBUG)
 
   # The want a daemon, give them a daemon
   if options.background:
