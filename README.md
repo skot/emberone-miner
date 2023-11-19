@@ -20,8 +20,6 @@ Usage
     -p PASSWORD, --pass=        password for mining server
     -O USER:PASS, --userpass=   username:password pair for mining server
 
-    -a, --algo                  hashing algorithm to use for proof of work
-
     -B, --background            run in the background as a daemon
 
     -q, --quiet                 suppress non-errors
@@ -36,7 +34,4 @@ Usage
         python pyminer.py -o stratum+tcp://foobar.com:3333 -u user -p passwd
 ```
 
-Please, note that for Android usage you need to change `python` to:
-- GNURoot Debian: `python2.7`
-- Termux: `python2`
 
