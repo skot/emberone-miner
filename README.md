@@ -1,5 +1,5 @@
-Fork of: https://github.com/crypto-jeronimo/pyminer
-Changes: Removed everything I don't need; made it work with python3
+Fork of: https://github.com/crypto-jeronimo/pyminer <br>
+Changes: Removed everything I don't need; made it work with python3<br>
 
 PyMiner
 =======
