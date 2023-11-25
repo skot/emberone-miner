@@ -22,16 +22,15 @@
 
 import binascii, json, hashlib, socket, struct, sys, threading, time
 from urllib import parse as urlparse
+import random
+from utils import utils
+from cpu_miner import miner
+import cpu_miner
+
+minerMiner = miner.CPUMiner()
 
 USER_AGENT = "PyMiner"
 VERSION = [0, 1]
-
-
-# Which algorithm for proof-of-work to use
-ALGORITHM_SHA256D     = 'sha256d'
-
-ALGORITHMS = [ ALGORITHM_SHA256D ]
-
 
 # Verbosity and log level
 QUIET           = False
@@ -42,10 +41,6 @@ LEVEL_PROTOCOL  = 'protocol'
 LEVEL_INFO      = 'info'
 LEVEL_DEBUG     = 'debug'
 LEVEL_ERROR     = 'error'
-
-
-
-WELCOME_MSG = ("Happy mining!")
 
 def log(message, level):
   '''Conditionally write a message to stdout based on command line options and level.'''
@@ -62,42 +57,6 @@ def log(message, level):
 
   print ("[%s] %s" % (time.strftime("%Y-%m-%d %H:%M:%S"), message))
 
-
-# Convert from/to binary and hexidecimal strings (could be replaced with .encode('hex') and .decode('hex'))
-hexlify = binascii.hexlify
-unhexlify = binascii.unhexlify
-
-
-def sha256d(message):
-  '''Double SHA256 Hashing function.'''
-
-  return hashlib.sha256(hashlib.sha256(message).digest()).digest()
-
-
-def swap_endian_word(hex_word):
-  '''Swaps the endianness of a hexidecimal string of a word and converts to a binary string.'''
-
-  message = unhexlify(hex_word)
-  if len(message) != 4: raise ValueError('Must be 4-byte word')
-  return message[::-1]
-
-
-# def swap_endian_words(hex_words):
-#   '''Swaps the endianness of a hexidecimal string of words and converts to binary string.'''
-
-#   message = unhexlify(hex_words)
-#   if len(message) % 4 != 0: raise ValueError('Must be 4-byte word aligned')
-#   return ''.join([ message[4 * i: 4 * i + 4][::-1] for i in range(0, len(message) // 4) ])
-
-def swap_endian_words(hex_words):
-    '''Swaps the endianness of a hexadecimal string of words and keeps as binary data.'''
-    message = unhexlify(hex_words)
-    if len(message) % 4 != 0:
-        raise ValueError('Must be 4-byte word aligned')
-    return b''.join([message[4 * i: 4 * i + 4][::-1] for i in range(len(message) // 4)])
-
-
-
 def human_readable_hashrate(hashrate):
   '''Returns a human readable representation of hashrate.'''
 
@@ -108,155 +67,6 @@ def human_readable_hashrate(hashrate):
   if hashrate < 10000000000:
     return '%2f Mhashes/s' % (hashrate / 1000000)
   return '%2f Ghashes/s' % (hashrate / 1000000000)
-
-
-class Job(object):
-  '''Encapsulates a Job from the network and necessary helper methods to mine.
-
-     "If you have a procedure with 10 parameters, you probably missed some."
-           ~Alan Perlis
-  '''
-
-  def __init__(
-    self,
-    job_id,
-    prevhash,
-    coinb1,
-    coinb2,
-    merkle_branches,
-    version,
-    nbits,
-    ntime,
-    target,
-    extranonce1,
-    extranonce2_size,
-    proof_of_work,
-    max_nonce=0x7fffffff,
-  ):
-
-    # Job parts from the mining.notify command
-    self._job_id = job_id
-    self._prevhash = prevhash
-    self._coinb1 = coinb1
-    self._coinb2 = coinb2
-    self._merkle_branches = [ b for b in merkle_branches ]
-    self._version = version
-    self._nbits = nbits
-    self._ntime = ntime
-
-    self._max_nonce = max_nonce
-
-    # Job information needed to mine from mining.subsribe
-    self._target = target
-    self._extranonce1 = extranonce1
-    self._extranonce2_size = extranonce2_size
-
-    # Proof of work algorithm
-    self._proof_of_work = proof_of_work
-
-    # Flag to stop this job's mine coroutine
-    self._done = False
-
-    # Hash metrics (start time, delta time, total hashes)
-    self._dt = 0.0
-    self._hash_count = 0
-
-  # Accessors
-  id = property(lambda s: s._job_id)
-  prevhash = property(lambda s: s._prevhash)
-  coinb1 = property(lambda s: s._coinb1)
-  coinb2 = property(lambda s: s._coinb2)
-  merkle_branches = property(lambda s: [ b for b in s._merkle_branches ])
-  version = property(lambda s: s._version)
-  nbits = property(lambda s: s._nbits)
-  ntime = property(lambda s: s._ntime)
-
-  target = property(lambda s: s._target)
-  extranonce1 = property(lambda s: s._extranonce1)
-  extranonce2_size = property(lambda s: s._extranonce2_size)
-
-  proof_of_work = property(lambda s: s._proof_of_work)
-
-
-  @property
-  def hashrate(self):
-    '''The current hashrate, or if stopped hashrate for the job's lifetime.'''
-
-    if self._dt == 0: return 0.0
-    return self._hash_count / self._dt
-
-
-  def merkle_root_bin(self, extranonce2_bin):
-    '''Builds a merkle root from the merkle tree'''
-
-    coinbase_bin = unhexlify(self._coinb1) + unhexlify(self._extranonce1) + extranonce2_bin + unhexlify(self._coinb2)
-    coinbase_hash_bin = sha256d(coinbase_bin)
-
-    merkle_root = coinbase_hash_bin
-    for branch in self._merkle_branches:
-      merkle_root = sha256d(merkle_root + unhexlify(branch))
-    return merkle_root
-
-
-  def stop(self):
-    '''Requests the mine coroutine stop after its current iteration.'''
-
-    self._done = True
-
-
-  def mine(self, nonce_start=0, nonce_stride=1):
-    '''Returns an iterator that iterates over valid proof-of-work shares.
-
-       This is a co-routine; that takes a LONG time; the calling thread should look like:
-
-         for result in job.mine(self):
-           submit_work(result)
-
-       nonce_start and nonce_stride are useful for multi-processing if you would like
-       to assign each process a different starting nonce (0, 1, 2, ...) and a stride
-       equal to the number of processes.
-    '''
-
-    t0 = time.time()
-
-    # @TODO: test for extranonce != 0... Do I reverse it or not?
-    for extranonce2 in range(self._max_nonce):
-
-      # Must be unique for any given job id, according to http://mining.bitcoin.cz/stratum-mining/ but never seems enforced?
-      extranonce2_bin = struct.pack('<I', extranonce2)
-
-      merkle_root_bin = self.merkle_root_bin(extranonce2_bin)
-      header_prefix_bin = swap_endian_word(self._version) + swap_endian_words(self._prevhash) + merkle_root_bin + swap_endian_word(self._ntime) + swap_endian_word(self._nbits)
-      for nonce in range(nonce_start, self._max_nonce, nonce_stride):
-        # This job has been asked to stop
-        if self._done:
-          self._dt += (time.time() - t0)
-          raise StopIteration()
-
-        # Proof-of-work attempt
-        nonce_bin = struct.pack('<I', nonce)
-        #pow = self.proof_of_work(header_prefix_bin + nonce_bin)[::-1].encode('hex')
-        pow = hexlify(sha256d(header_prefix_bin + nonce_bin)[::-1]).decode("utf8")
-
-        # Did we reach or exceed our target?
-        if pow <= self.target:
-          result = dict(
-            job_id = self.id,
-            extranonce2 = hexlify(extranonce2_bin).decode("utf8"),
-            ntime = str(self._ntime),                    # Convert to str from json unicode
-            nonce = hexlify(nonce_bin[::-1]).decode("utf8")
-          )
-          self._dt += (time.time() - t0)
-
-          yield result
-
-          t0 = time.time()
-
-        self._hash_count += 1
-
-
-  def __str__(self):
-    return '<Job id=%s prevhash=%s coinb1=%s coinb2=%s merkle_branches=%s version=%s nbits=%s ntime=%s target=%s extranonce1=%s extranonce2_size=%d>' % (self.id, self.prevhash, self.coinb1, self.coinb2, self.merkle_branches, self.version, self.nbits, self.ntime, self.target, self.extranonce1, self.extranonce2_size)
 
 
 # Subscription state
@@ -299,23 +109,6 @@ class Subscription(object):
     self._worker_name = worker_name
 
 
-  def _set_target(self, target):
-    self._target = '%064x' % target
-
-
-  def set_difficulty(self, difficulty):
-    if difficulty < 0: raise self.StateException('Difficulty must be non-negative')
-
-    # Compute target
-    if difficulty == 0:
-      target = 2 ** 256 - 1
-    else:
-      target = min(int((0xffff0000 * 2 ** (256 - 64) + 1) / difficulty - 1 + 0.5), 2 ** 256 - 1)
-
-    self._difficulty = difficulty
-    self._set_target(target)
-
-
   def set_subscription(self, subscription_id, extranonce1, extranonce2_size):
     if self._id is not None:
       raise self.StateException('Already subscribed')
@@ -331,7 +124,7 @@ class Subscription(object):
     if self._id is None:
       raise self.StateException('Not subscribed')
 
-    return Job(
+    return cpu_miner.miner.Job(
       job_id=job_id,
       prevhash=prevhash,
       coinb1=coinb1,
@@ -343,7 +136,6 @@ class Subscription(object):
       target=self.target,
       extranonce1=self._extranonce1,
       extranonce2_size=self.extranonce2_size,
-      proof_of_work=self.ProofOfWork,
       max_nonce=self._max_nonce,
     )
 
@@ -353,14 +145,7 @@ class Subscription(object):
 class SubscriptionSHA256D(Subscription):
   '''Subscription for Double-SHA256-based coins, like Bitcoin.'''
 
-  ProofOfWork = sha256d
-
-
-# Maps algorithms to their respective subscription objects
-SubscriptionByAlgorithm = {
-  ALGORITHM_SHA256D: SubscriptionSHA256D,
-}
-
+  ProofOfWork = utils.sha256d
 
 class SimpleJsonRpcClient(object):
   '''Simple JSON-RPC client.
@@ -460,6 +245,9 @@ class SimpleJsonRpcClient(object):
 
     return request
 
+  def mining_submit(self, result):
+    params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce') ]
+    self.send(method = 'mining.submit', params = params)
 
   def connect(self, socket):
     '''Connects to a remove JSON-RPC server'''
@@ -484,14 +272,14 @@ class Miner(SimpleJsonRpcClient):
 
   class MinerAuthenticationException(SimpleJsonRpcClient.RequestReplyException): pass
 
-  def __init__(self, url, username, password, algorithm=ALGORITHM_SHA256D):
+  def __init__(self, url, username, password):
     SimpleJsonRpcClient.__init__(self)
 
     self._url = url
     self._username = username
     self._password = password
 
-    self._subscription = SubscriptionByAlgorithm[algorithm]()
+    self._subscription = SubscriptionSHA256D()
 
     self._job = None
 
@@ -505,6 +293,7 @@ class Miner(SimpleJsonRpcClient):
 
   # Overridden from SimpleJsonRpcClient
   def handle_reply(self, request, reply):
+    global minerMiner
 
     # New work, stop what we were doing before, and start on this.
     if reply.get('method') == 'mining.notify':
@@ -512,7 +301,20 @@ class Miner(SimpleJsonRpcClient):
         raise self.MinerWarning('Malformed mining.notify message', reply)
 
       (job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime, clean_jobs) = reply['params']
-      self._spawn_job_thread(job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime)
+
+      # Create the new job
+      self._job = self._subscription.create_job(
+        job_id = job_id,
+        prevhash = prevhash,
+        coinb1 = coinb1,
+        coinb2 = coinb2,
+        merkle_branches = merkle_branches,
+        version = version,
+        nbits = nbits,
+        ntime = ntime
+      )
+      minerMiner.set_submit_callback(self.mining_submit)
+      minerMiner.start_job(self._job)
 
       log('New job: job_id=%s' % job_id, LEVEL_DEBUG)
 
@@ -522,7 +324,7 @@ class Miner(SimpleJsonRpcClient):
         raise self.MinerWarning('Malformed mining.set_difficulty message', reply)
 
       (difficulty, ) = reply['params']
-      self._subscription.set_difficulty(difficulty)
+      minerMiner.set_difficulty(difficulty)
 
       log('Change difficulty: difficulty=%s' % difficulty, LEVEL_DEBUG)
 
@@ -536,7 +338,7 @@ class Miner(SimpleJsonRpcClient):
 
         (tmp, extranonce1, extranonce2_size) = reply['result']
 
-        if not isinstance(tmp, list) or len(tmp) != 2:
+        if not isinstance(tmp, list) or len(tmp) != 1 or not isinstance(tmp[0], list) or not len(tmp[0]) == 2:
           raise self.MinerWarning('Reply to mining.subscribe is malformed', reply, request)
 
         (mining_notify, subscription_id) = tmp[0]
@@ -575,44 +377,6 @@ class Miner(SimpleJsonRpcClient):
     else:
       raise self.MinerWarning('Bad message state', reply)
 
-
-  def _spawn_job_thread(self, job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime):
-    '''Stops any previous job and begins a new job.'''
-
-    # Stop the old job (if any)
-    if self._job: self._job.stop()
-
-    # Create the new job
-    self._job = self._subscription.create_job(
-      job_id = job_id,
-      prevhash = prevhash,
-      coinb1 = coinb1,
-      coinb2 = coinb2,
-      merkle_branches = merkle_branches,
-      version = version,
-      nbits = nbits,
-      ntime = ntime
-    )
-
-    def run(job):
-      try:
-        for result in job.mine():
-          params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce') ]
-          self.send(method = 'mining.submit', params = params)
-          log("Found share: " + str(params), LEVEL_INFO)
-        log("Hashrate: %s" % human_readable_hashrate(job.hashrate), LEVEL_INFO)
-      except Exception as e:
-        log("ERROR: %s" % e, LEVEL_ERROR)
-
-    thread = threading.Thread(target = run, args = (self._job, ))
-    thread.daemon = True
-    thread.start()
-
-  @staticmethod
-  def welcome_msg():
-    log(WELCOME_MSG, LEVEL_INFO)
-
-
   def serve_forever(self):
     '''Begins the miner. This method does not return.'''
 
@@ -620,8 +384,6 @@ class Miner(SimpleJsonRpcClient):
     url = urlparse.urlparse(self.url)
     hostname = url.hostname or ''
     port = url.port or 9333
-
-    self.welcome_msg()
 
     log('Starting server on %s:%d' % (hostname, port), LEVEL_INFO)
 
@@ -651,8 +413,6 @@ if __name__ == '__main__':
   parser.add_argument('-p', '--pass', dest = 'password', default = '', help = 'password for mining server', metavar = "PASSWORD")
 
   parser.add_argument('-O', '--userpass', help = 'username:password pair for mining server', metavar = "USERNAME:PASSWORD")
-
-  parser.add_argument('-a', '--algo', default = ALGORITHM_SHA256D, choices = ALGORITHMS, help = 'hashing algorithm to use for proof of work')
 
   parser.add_argument('-B', '--background', action ='store_true', help = 'run in the background as a daemon')
 
@@ -698,5 +458,5 @@ if __name__ == '__main__':
 
   # Heigh-ho, heigh-ho, it's off to work we go...
   if options.url:
-    miner = Miner(options.url, username, password, algorithm = options.algo)
+    miner = Miner(options.url, username, password)
     miner.serve_forever()
