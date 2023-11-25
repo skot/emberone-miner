@@ -246,7 +246,7 @@ class SimpleJsonRpcClient(object):
     return request
 
   def mining_submit(self, result):
-    params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce') ]
+    params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce', 'version') ]
     self.send(method = 'mining.submit', params = params)
 
   def connect(self, socket):

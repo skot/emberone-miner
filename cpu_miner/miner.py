@@ -120,7 +120,7 @@ class CPUMiner:
                 result = None
                 if pow <= self._target: # or pow < job._target:
                     result = dict(
-                        job_id = job.id,
+                        job_id = job._job_id,
                         extranonce2 = binascii.hexlify(extranonce2_bin).decode("utf8"),
                         ntime = str(job._ntime),                    # Convert to str from json unicode
                         nonce = binascii.hexlify(nonce_bin[::-1]).decode("utf8"),
