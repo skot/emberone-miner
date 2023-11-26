@@ -106,6 +106,9 @@ class Job:
 
         # choose random extranonce
         extranonce2 = random.randint(0, 2**31-1)
+        self.set_extranonce2(extranonce2)
+
+    def set_extranonce2(self, extranonce2):
         self._extranonce2 = int_to_hex32(extranonce2)
 
         coinbase_bin = binascii.unhexlify(self._coinb1) + binascii.unhexlify(self._extranonce1) + binascii.unhexlify(self._extranonce2) + binascii.unhexlify(self._coinb2)
@@ -116,6 +119,7 @@ class Job:
             self._merkle_root_bin = sha256d(self._merkle_root_bin + binascii.unhexlify(branch))
 
         self._merkle_root = binascii.hexlify(swap_endian_words(binascii.hexlify(self._merkle_root_bin).decode('utf8'))).decode('utf8')
+
 
 
     def to_dict(self):

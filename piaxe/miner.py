@@ -3,6 +3,7 @@ import serial
 import time
 import logging
 from collections import deque
+import random
 
 from rpi_hardware_pwm import HardwarePWM
 
@@ -43,8 +44,14 @@ class BM1366Miner:
         self.current_work = None
         self.serial_port = None
 
+        self._read_index = 0
+        self._write_index = 0
+        self._buffer = bytearray([0] * 64)
+
+
         self.job_thread = None
         self.job_lock = threading.Lock()
+        self.serial_lock = threading.Lock()
         self.stop_event = threading.Event()
 
 
@@ -89,9 +96,14 @@ class BM1366Miner:
         self.set_difficulty(512)
 
     def _serial_tx_func(self, data, debug=False):
-        self.serial_port.write(data)
-        logging.debug("-> %s", bytearray(data).hex())
-        time.sleep(0.01)
+        with self.serial_lock:
+            total_sent = 0
+            while total_sent < len(data):
+                sent = self.serial_port.write(data[total_sent:])
+                if sent == 0:
+                    raise RuntimeError("Serial connection broken")
+                total_sent += sent
+            logging.debug("-> %s", bytearray(data).hex())
 
     def _serial_rx_func(self, size, timeout_ms, debug=False):
         self.serial_port.timeout = timeout_ms / 1000.0
@@ -131,12 +143,6 @@ class BM1366Miner:
         self.submit_cb = cb
 
     def _receive(self):
-        job = self.current_job
-
-        read_index = 0
-        write_index = 0
-        buffer = bytearray([0] * 64)
-
         while True:
             if self.stop_event.is_set():
                 return
@@ -146,29 +152,57 @@ class BM1366Miner:
             if not byte:
                 continue
 
-            buffer[write_index % 64] = byte[0]
-            write_index += 1
+            self._buffer[self._write_index % 64] = byte[0]
+            self._write_index += 1
 
-            if write_index - read_index >= 11 and buffer[read_index % 64] == 0xaa and buffer[(read_index + 1) % 64] == 0x55:
+            if self._write_index - self._read_index >= 11 and self._buffer[self._read_index % 64] == 0xaa and self._buffer[(self._read_index + 1) % 64] == 0x55:
                 data = bytearray([0] * 11)
                 for i in range(0, 11):
-                    data[i] = buffer[read_index % 64]
-                    read_index += 1
+                    data[i] = self._buffer[self._read_index % 64]
+                    self._read_index += 1
 
                 logging.debug("<- %s", bytes(data).hex())
 
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
                 if asic_result and asic_result.nonce and asic_result.nonce not in [0x0, 0x6613]:
-                    result = dict(
-                        job_id = job._job_id,
-                        extranonce2 = job._extranonce2,
-                        ntime = job._ntime,
-                        nonce = shared.int_to_hex32(asic_result.nonce),
-                        version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
-                    )
-                    if not shared.verify_work(self._difficulty, job, result):
-                        logging.error("invalid result!")
-                    self.submit_cb(result)
+                    with self.job_lock:
+                        result = dict(
+                            job_id = self.current_job._job_id,
+                            extranonce2 = self.current_job._extranonce2,
+                            ntime = self.current_job._ntime,
+                            nonce = shared.int_to_hex32(asic_result.nonce),
+                            version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
+                        )
+                        if not shared.verify_work(self._difficulty, self.current_job, result):
+                            logging.error("invalid result!")
+
+                        self.submit_cb(result)
+
+                    # restart miner with new extranonce2
+                    self._start_with_random_extranonce2(self.current_job)
+
+
+
+    def _start_with_random_extranonce2(self, job):
+        with self.job_lock:
+            extranonce2 = random.randint(0, 2**31-1)
+            logging.debug("new extranonce2 %08x", extranonce2)
+            job.set_extranonce2(extranonce2)
+
+            self.current_job = job
+
+            work = bm1366.WorkRequest()
+            work.create_work(
+                shared.hex_to_int(job._job_id),
+                0x00000000,
+                shared.hex_to_int(job._nbits),
+                shared.hex_to_int(job._ntime),
+                shared.reverse_bytes(shared.hex_to_bytes(job._merkle_root)),
+                shared.reverse_bytes(shared.hex_to_bytes(job._prevhash)),
+                shared.hex_to_int(job._version)
+            )
+            self.current_work = work
+            bm1366.send_work(work)
 
 
     def start_job(self, job):
@@ -177,22 +211,10 @@ class BM1366Miner:
             self.job_thread.join()
 
         self.stop_event.clear()
-        self.current_job = job
         self.job_thread = threading.Thread(target=self._receive)
         self.job_thread.start()
 
-        work = bm1366.WorkRequest()
-        work.create_work(
-            shared.hex_to_int(job._job_id),
-            0x00000000,
-            shared.hex_to_int(job._nbits),
-            shared.hex_to_int(job._ntime),
-            shared.reverse_bytes(shared.hex_to_bytes(job._merkle_root)),
-            shared.reverse_bytes(shared.hex_to_bytes(job._prevhash)),
-            shared.hex_to_int(job._version)
-        )
-        self.current_work = work
-        bm1366.send_work(work)
+        self._start_with_random_extranonce2(job)
 
 
     def stop(self):
