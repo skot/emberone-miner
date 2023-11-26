@@ -63,7 +63,11 @@ class CPUMiner:
         for rolled_version in range(12345, 2**16):
             version_hex = shared.int_to_hex32(int(job._version, 16) | (rolled_version << 13))
 
-            header_prefix_bin = shared.swap_endian_word(version_hex) + shared.swap_endian_words(job._prevhash) + shared.swap_endian_words(job._merkle_root) + shared.swap_endian_word(job._ntime) + shared.swap_endian_word(job._nbits)
+            header_prefix_bin = shared.swap_endian_word(version_hex)
+            header_prefix_bin += shared.swap_endian_words(job._prevhash)
+            header_prefix_bin += shared.swap_endian_words(job._merkle_root)
+            header_prefix_bin += shared.swap_endian_word(job._ntime)
+            header_prefix_bin += shared.swap_endian_word(job._nbits)
             for nonce in range(0, job._max_nonce):
                 # This job has been asked to stop
                 if self.stop_event.is_set():

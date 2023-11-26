@@ -23,12 +23,16 @@
 import json, socket, sys, threading, time
 from urllib import parse as urlparse
 from shared import shared
-from cpu_miner import miner
-import cpu_miner
+#from cpu_miner import miner
+from piaxe import miner
+#import cpu_miner
 import logging
+import piaxe
+logging.basicConfig(level=logging.DEBUG,
+                      format='%(asctime)s - %(levelname)s - %(message)s')
 
-
-minerMiner = miner.CPUMiner()
+minerMiner = miner.BM1366Miner()
+minerMiner.init()
 
 USER_AGENT = "PyMiner"
 VERSION = [0, 1]
@@ -98,7 +102,7 @@ class Subscription(object):
     if self._id is None:
       raise self.StateException('Not subscribed')
 
-    return cpu_miner.miner.Job(
+    return piaxe.miner.Job(
       job_id=job_id,
       prevhash=prevhash,
       coinb1=coinb1,
@@ -428,8 +432,6 @@ if __name__ == '__main__':
   log_protocol = options.protocol
 
   # Configure logging with time
-  logging.basicConfig(level=logging.DEBUG,
-                      format='%(asctime)s - %(levelname)s - %(message)s')
 
 
   # The want a daemon, give them a daemon

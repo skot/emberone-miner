@@ -174,6 +174,9 @@ def int_to_hex16(v):
 def int_to_bytes32(i):
     return struct.pack('<I', i)
 
+def hex_to_int(v):
+    return int(v, 16)
+
 def bytes_to_hex(i):
     return binascii.hexlify(i).decode('utf8')
 
