@@ -5,6 +5,8 @@ import logging
 from collections import deque
 import random
 import copy
+import smbus
+import os
 
 from rpi_hardware_pwm import HardwarePWM
 
@@ -21,6 +23,10 @@ SDN_PIN = 11  # SDN, output, initial high
 PGOOD_PIN = 13  # PGOOD, input, floating
 NRST_PIN = 15  # NRST, output, initial high
 PWM_PIN = 12  # PWM output on Pin 12
+
+
+LM75_ADDRESS = 0x48
+
 
 class Job(shared.Job):
     def __init__(
@@ -59,6 +65,7 @@ class BM1366Miner:
 
         self.job_thread = None
         self.receive_thread = None
+        self.temp_thread = None
         self.job_lock = threading.Lock()
         self.serial_lock = threading.Lock()
         self.stop_event = threading.Event()
@@ -73,6 +80,9 @@ class BM1366Miner:
         GPIO.setup(SDN_PIN, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(PGOOD_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Default is floating
         GPIO.setup(NRST_PIN, GPIO.OUT, initial=GPIO.HIGH)
+
+        # Create an SMBus instance
+        self._bus = smbus.SMBus(1)  # 1 indicates /dev/i2c-1
 
         pwm = HardwarePWM(pwm_channel=0, hz=1000)
         pwm.start(80) # full duty cycle
@@ -105,12 +115,40 @@ class BM1366Miner:
 
         self.set_difficulty(512)
 
+        self.temp_thread = threading.Thread(target=self._read_temperature)
+        self.temp_thread.start()
+
         self.receive_thread = threading.Thread(target=self._receive_thread)
         self.receive_thread.start()
 
         self.job_thread = threading.Thread(target=self._job_thread)
         self.job_thread.start()
 
+    def shutdown(self):
+        GPIO.output(SDN_PIN, False)
+        os.exit(1)
+
+    def _read_temperature(self):
+        while True:
+            # Read two bytes of data from the temperature register
+            data = self._bus.read_i2c_block_data(LM75_ADDRESS, 0, 2)
+
+            # Convert the data to 12-bits
+            temp = (data[0] << 4) | (data[1] >> 4)
+
+            # Convert to a signed 12-bit value
+            if temp > 2047:
+                temp -= 4096
+
+            # Convert to Celsius
+            celsius = temp * 0.0625
+            logging.info("temperature: %.3f", celsius)
+
+            if celsius > 70.0:
+                logging.error("too hot, shutting down ...")
+                self.shutdown()
+
+            time.sleep(5)
 
     def _serial_tx_func(self, data, debug=False):
         with self.serial_lock:
