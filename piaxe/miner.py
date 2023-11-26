@@ -71,6 +71,8 @@ class BM1366Miner:
         self.stop_event = threading.Event()
         self.new_job_event = threading.Event()
 
+    def get_name(self):
+        return "PiAxe"
 
     def init(self):
         # Setup GPIO
@@ -263,19 +265,17 @@ class BM1366Miner:
                     else:
                         self.submit_cb(result)
 
-                # restart miner with new extranonce2
+                    # restart miner with new extranonce2
+                    self.new_job_event.set()
+
+
 
 
     def _job_thread(self):
         logging.info("job thread started ...")
         current_time = time.time()
         while True:
-            # did we receive a new job or are we mining for longer than 10s
-            if not self.new_job_event.is_set() and time.time() - current_time < 10:
-                time.sleep(0.1)
-                continue
-
-            # clear event asap
+            self.new_job_event.wait(5)
             self.new_job_event.clear()
 
             with self.job_lock:

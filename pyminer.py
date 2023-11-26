@@ -34,7 +34,7 @@ logging.basicConfig(level=logging.DEBUG,
 minerMiner = miner.BM1366Miner()
 minerMiner.init()
 
-USER_AGENT = "PyMiner"
+USER_AGENT = minerMiner.get_name()
 VERSION = [0, 1]
 
 def human_readable_hashrate(hashrate):
