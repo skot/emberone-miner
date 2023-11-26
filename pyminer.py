@@ -20,42 +20,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import binascii, json, hashlib, socket, struct, sys, threading, time
+import json, socket, sys, threading, time
 from urllib import parse as urlparse
-import random
-from utils import utils
+from shared import shared
 from cpu_miner import miner
 import cpu_miner
+import logging
+
 
 minerMiner = miner.CPUMiner()
 
 USER_AGENT = "PyMiner"
 VERSION = [0, 1]
-
-# Verbosity and log level
-QUIET           = False
-DEBUG           = False
-DEBUG_PROTOCOL  = False
-
-LEVEL_PROTOCOL  = 'protocol'
-LEVEL_INFO      = 'info'
-LEVEL_DEBUG     = 'debug'
-LEVEL_ERROR     = 'error'
-
-def log(message, level):
-  '''Conditionally write a message to stdout based on command line options and level.'''
-
-  global DEBUG
-  global DEBUG_PROTOCOL
-  global QUIET
-
-  if QUIET and level != LEVEL_ERROR: return
-  if not DEBUG_PROTOCOL and level == LEVEL_PROTOCOL: return
-  if not DEBUG and level == LEVEL_DEBUG: return
-
-  if level != LEVEL_PROTOCOL: message = '[%s] %s' % (level.upper(), message)
-
-  print ("[%s] %s" % (time.strftime("%Y-%m-%d %H:%M:%S"), message))
 
 def human_readable_hashrate(hashrate):
   '''Returns a human readable representation of hashrate.'''
@@ -86,7 +62,6 @@ class Subscription(object):
     self._difficulty = None
     self._extranonce1 = None
     self._extranonce2_size = None
-    self._target = None
     self._worker_name = None
 
     self._mining_thread = None
@@ -96,7 +71,6 @@ class Subscription(object):
   worker_name = property(lambda s: s._worker_name)
 
   difficulty = property(lambda s: s._difficulty)
-  target = property(lambda s: s._target)
 
   extranonce1 = property(lambda s: s._extranonce1)
   extranonce2_size = property(lambda s: s._extranonce2_size)
@@ -133,7 +107,6 @@ class Subscription(object):
       version=version,
       nbits=nbits,
       ntime=ntime,
-      target=self.target,
       extranonce1=self._extranonce1,
       extranonce2_size=self.extranonce2_size,
       max_nonce=self._max_nonce,
@@ -145,7 +118,7 @@ class Subscription(object):
 class SubscriptionSHA256D(Subscription):
   '''Subscription for Double-SHA256-based coins, like Bitcoin.'''
 
-  ProofOfWork = utils.sha256d
+  ProofOfWork = shared.sha256d
 
 class SimpleJsonRpcClient(object):
   '''Simple JSON-RPC client.
@@ -196,13 +169,14 @@ class SimpleJsonRpcClient(object):
         data += chunk
         continue
 
-      log('JSON-RPC Server > ' + line, LEVEL_PROTOCOL)
+      if log_protocol:
+        logging.debug('JSON-RPC Server > ' + line)
 
       # Parse the JSON
       try:
         reply = json.loads(line)
       except Exception as e:
-        log("JSON-RPC Error: Failed to parse JSON %r (skipping)" % line, LEVEL_ERROR)
+        logging.error("JSON-RPC Error: Failed to parse JSON %r (skipping)" % line)
         continue
 
       try:
@@ -219,7 +193,7 @@ class SimpleJsonRpcClient(object):
           except TypeError:
             output += '\n  ' + str(e.request)
         output += '\n  ' + str(e.reply)
-        log(output, LEVEL_ERROR)
+        logging.error(output)
 
 
   def handle_reply(self, request, reply):
@@ -240,8 +214,8 @@ class SimpleJsonRpcClient(object):
       self._message_id += 1
       self._socket.send((message + '\n').encode('utf-8'))
 
-
-    log('JSON-RPC Server < ' + message, LEVEL_PROTOCOL)
+    if log_protocol:
+      logging.debug('JSON-RPC Server < ' + message)
 
     return request
 
@@ -316,7 +290,7 @@ class Miner(SimpleJsonRpcClient):
       minerMiner.set_submit_callback(self.mining_submit)
       minerMiner.start_job(self._job)
 
-      log('New job: job_id=%s' % job_id, LEVEL_DEBUG)
+      logging.debug('New job: job_id=%s' % job_id)
 
     # The server wants us to change our difficulty (on all *future* work)
     elif reply.get('method') == 'mining.set_difficulty':
@@ -326,7 +300,7 @@ class Miner(SimpleJsonRpcClient):
       (difficulty, ) = reply['params']
       minerMiner.set_difficulty(difficulty)
 
-      log('Change difficulty: difficulty=%s' % difficulty, LEVEL_DEBUG)
+      logging.debug('Change difficulty: difficulty=%s' % difficulty)
 
     # This is a reply to...
     elif request:
@@ -345,7 +319,7 @@ class Miner(SimpleJsonRpcClient):
 
         self._subscription.set_subscription(subscription_id, extranonce1, extranonce2_size)
 
-        log('Subscribed: subscription_id=%s' % subscription_id, LEVEL_DEBUG)
+        logging.debug('Subscribed: subscription_id=%s' % subscription_id)
 
         # Request authentication
         self.send(method = 'mining.authorize', params = [ self.username, self.password ])
@@ -358,16 +332,16 @@ class Miner(SimpleJsonRpcClient):
         worker_name = request['params'][0]
         self._subscription.set_worker_name(worker_name)
 
-        log('Authorized: worker_name=%s' % worker_name, LEVEL_DEBUG)
+        logging.debug('Authorized: worker_name=%s' % worker_name)
 
       # ...submit; complain if the server didn't accept our submission
       elif request.get('method') == 'mining.submit':
         if 'result' not in reply or not reply['result']:
-          log('Share - Invalid', LEVEL_INFO)
+          logging.info('Share - Invalid')
           raise self.MinerWarning('Failed to accept submit', reply, request)
 
         self._accepted_shares += 1
-        log('Accepted shares: %d' % self._accepted_shares, LEVEL_INFO)
+        logging.info('Accepted shares: %d' % self._accepted_shares)
 
       # ??? *shrug*
       else:
@@ -385,7 +359,7 @@ class Miner(SimpleJsonRpcClient):
     hostname = url.hostname or ''
     port = url.port or 9333
 
-    log('Starting server on %s:%d' % (hostname, port), LEVEL_INFO)
+    logging.info('Starting server on %s:%d' % (hostname, port))
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((hostname, port))
@@ -446,10 +420,17 @@ if __name__ == '__main__':
     print(message)
     sys.exit(1)
 
-  # Set the logging level
-  if options.debug:DEBUG = True
-  if options.protocol: DEBUG_PROTOCOL = True
-  if options.quiet: QUIET = True
+  log_level = logging.INFO
+
+  if options.debug:
+    log_level = logging.DEBUG
+
+  log_protocol = options.protocol
+
+  # Configure logging with time
+  logging.basicConfig(level=logging.DEBUG,
+                      format='%(asctime)s - %(levelname)s - %(message)s')
+
 
   # The want a daemon, give them a daemon
   if options.background:
