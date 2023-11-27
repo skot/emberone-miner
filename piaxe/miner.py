@@ -2,7 +2,6 @@ import RPi.GPIO as GPIO
 import serial
 import time
 import logging
-from collections import deque
 import random
 import copy
 import smbus
@@ -11,19 +10,15 @@ import os
 from rpi_hardware_pwm import HardwarePWM
 
 import threading
-import struct
-import binascii
 from shared import shared
 
 from . import bm1366
-from . import utils
-from . import crc_functions
 
 SDN_PIN = 11  # SDN, output, initial high
 PGOOD_PIN = 13  # PGOOD, input, floating
 NRST_PIN = 15  # NRST, output, initial high
 PWM_PIN = 12  # PWM output on Pin 12
-
+LED_PIN = 19 # LED 😍
 
 LM75_ADDRESS = 0x48
 
@@ -82,6 +77,7 @@ class BM1366Miner:
         GPIO.setup(SDN_PIN, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(PGOOD_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Default is floating
         GPIO.setup(NRST_PIN, GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.setup(LED_PIN, GPIO.OUT, initial=GPIO.LOW)
 
         # Create an SMBus instance
         self._bus = smbus.SMBus(1)  # 1 indicates /dev/i2c-1
@@ -126,9 +122,14 @@ class BM1366Miner:
         self.job_thread = threading.Thread(target=self._job_thread)
         self.job_thread.start()
 
+    def set_led(self, state):
+        GPIO.output(LED_PIN, True if state else False)
+
     def shutdown(self):
+        # disable buck converter
+        logging.info("shutdown miner ...")
         GPIO.output(SDN_PIN, False)
-        os.exit(1)
+        self.set_led(False)
 
     def _read_temperature(self):
         while True:
@@ -149,6 +150,7 @@ class BM1366Miner:
             if celsius > 70.0:
                 logging.error("too hot, shutting down ...")
                 self.shutdown()
+                os._exit(1)
 
             time.sleep(5)
 
@@ -274,6 +276,7 @@ class BM1366Miner:
     def _job_thread(self):
         logging.info("job thread started ...")
         current_time = time.time()
+        led_state = True
         while True:
             self.new_job_event.wait(5)
             self.new_job_event.clear()
@@ -326,6 +329,9 @@ class BM1366Miner:
                 # logging.info("health-checking success")
 
                 bm1366.send_work(work)
+
+                led_state = not led_state
+                self.set_led(led_state)
 
                 # remember when we started the work
                 current_time = time.time()

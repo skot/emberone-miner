@@ -28,6 +28,8 @@ from piaxe import miner
 #import cpu_miner
 import logging
 import piaxe
+import signal
+import os
 logging.basicConfig(level=logging.DEBUG,
                       format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -396,6 +398,11 @@ class Miner(SimpleJsonRpcClient):
 
     self.send(method = 'mining.subscribe', params = [ "%s/%s" % (USER_AGENT, '.'.join(str(p) for p in VERSION)) ])
 
+def sigint_handler(signal_received, frame):
+    print('SIGINT (Ctrl+C) captured, exiting gracefully')
+    minerMiner.shutdown()
+    os._exit(0)
+
 
 # CLI for cpu mining
 if __name__ == '__main__':
@@ -460,6 +467,8 @@ if __name__ == '__main__':
   if options.background:
     import os
     if os.fork() or os.fork(): sys.exit()
+
+  signal.signal(signal.SIGINT, sigint_handler)
 
   # Heigh-ho, heigh-ho, it's off to work we go...
   if options.url:
