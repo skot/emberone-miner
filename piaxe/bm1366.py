@@ -1,3 +1,4 @@
+# translated from: https://github.com/skot/ESP-Miner
 import struct
 import serial
 
