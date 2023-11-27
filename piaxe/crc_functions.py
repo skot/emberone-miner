@@ -1,4 +1,4 @@
-# crc_package/crc_functions.py
+# translated from: https://github.com/skot/ESP-Miner
 
 CRC5_MASK = 0x1F
 
