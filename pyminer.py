@@ -159,45 +159,67 @@ class SimpleJsonRpcClient(object):
     self._rpc_thread = None
     self._message_id = 1
     self._requests = dict()
+    self.error_event = threading.Event()
 
+  def stop(self):
+    self.error_event.set()
+
+    try:
+        if self._socket:
+          self._socket.shutdown(socket.SHUT_RDWR)
+          self._socket.close()
+    except OSError as e:
+        print(f"Error when closing socket: {e}")
+
+    if self._rpc_thread:
+      self._rpc_thread.join()
 
   def _handle_incoming_rpc(self):
     data = ""
-    while True:
-      # Get the next line if we have one, otherwise, read and block
-      if '\n' in data:
-        (line, data) = data.split('\n', 1)
-      else:
-        chunk = self._socket.recv(1024)
-        chunk = chunk.decode('utf-8')
-        data += chunk
-        continue
-
-      if log_protocol:
-        logging.debug('JSON-RPC Server > ' + line)
-
-      # Parse the JSON
+    while not self.error_event.is_set():
       try:
-        reply = json.loads(line)
+        # Get the next line if we have one, otherwise, read and block
+        if '\n' in data:
+          (line, data) = data.split('\n', 1)
+        else:
+          chunk = self._socket.recv(1024)
+
+          if not chunk:
+            raise Exception("tcp connection closed ...")
+
+          chunk = chunk.decode('utf-8')
+          data += chunk
+          continue
+
+        if log_protocol:
+          logging.debug('JSON-RPC Server > ' + line)
+
+        # Parse the JSON
+        try:
+          reply = json.loads(line)
+        except Exception as e:
+          logging.error("JSON-RPC Error: Failed to parse JSON %r (skipping)" % line)
+          continue
+
+        try:
+          request = None
+          with self._lock:
+            if 'id' in reply and reply['id'] in self._requests:
+              request = self._requests[reply['id']]
+            self.handle_reply(request = request, reply = reply)
+        except self.RequestReplyWarning as e:
+          output = str(e)
+          if e.request:
+            try:
+              output += '\n  ' + e.request
+            except TypeError:
+              output += '\n  ' + str(e.request)
+          output += '\n  ' + str(e.reply)
+          logging.error(output)
       except Exception as e:
-        logging.error("JSON-RPC Error: Failed to parse JSON %r (skipping)" % line)
-        continue
-
-      try:
-        request = None
-        with self._lock:
-          if 'id' in reply and reply['id'] in self._requests:
-            request = self._requests[reply['id']]
-          self.handle_reply(request = request, reply = reply)
-      except self.RequestReplyWarning as e:
-        output = str(e)
-        if e.request:
-          try:
-            output += '\n  ' + e.request
-          except TypeError:
-            output += '\n  ' + str(e.request)
-        output += '\n  ' + str(e.reply)
-        logging.error(output)
+        logging.error('Exception in RPC thread: %s' % str(e))
+        self.error_event.set()
+    logging.error("error flag set ... ending handle_incoming_rpc thread")
 
 
   def handle_reply(self, request, reply):
@@ -208,27 +230,31 @@ class SimpleJsonRpcClient(object):
   def send(self, method, params):
     '''Sends a message to the JSON-RPC server'''
 
-    if not self._socket:
-      raise self.ClientException('Not connected')
+    try:
+      if not self._socket:
+        raise self.ClientException('Not connected')
 
-    request = dict(id = self._message_id, method = method, params = params)
-    message = json.dumps(request)
-    with self._lock:
-      self._requests[self._message_id] = request
-      self._message_id += 1
-      self._socket.send((message + '\n').encode('utf-8'))
+      request = dict(id = self._message_id, method = method, params = params)
+      message = json.dumps(request)
+      with self._lock:
+        self._requests[self._message_id] = request
+        self._message_id += 1
+        self._socket.send((message + '\n').encode('utf-8'))
 
-    if log_protocol:
-      logging.debug('JSON-RPC Server < ' + message)
+      if log_protocol:
+        logging.debug('JSON-RPC Server < ' + message)
 
-    return request
+      return request
+    except Exception as e:
+      logging.error('Exception in send: %s' % str(e))
+      self.error_event.set()
 
   def mining_submit(self, result):
     params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce', 'version') ]
     self.send(method = 'mining.submit', params = params)
 
   def connect(self, socket):
-    '''Connects to a remove JSON-RPC server'''
+    '''Connects to a remote JSON-RPC server'''
 
     if self._rpc_thread:
       raise self.ClientException('Already connected')
@@ -355,7 +381,7 @@ class Miner(SimpleJsonRpcClient):
     else:
       raise self.MinerWarning('Bad message state', reply)
 
-  def serve_forever(self):
+  def serve(self):
     '''Begins the miner. This method does not return.'''
 
     # Figure out the hostname and port
@@ -364,16 +390,12 @@ class Miner(SimpleJsonRpcClient):
     port = url.port or 9333
 
     logging.info('Starting server on %s:%d' % (hostname, port))
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((hostname, port))
     self.connect(sock)
 
     self.send(method = 'mining.subscribe', params = [ "%s/%s" % (USER_AGENT, '.'.join(str(p) for p in VERSION)) ])
 
-    # Forever...
-    while True:
-      time.sleep(10)
 
 # CLI for cpu mining
 if __name__ == '__main__':
@@ -441,5 +463,16 @@ if __name__ == '__main__':
 
   # Heigh-ho, heigh-ho, it's off to work we go...
   if options.url:
-    miner = Miner(options.url, username, password)
-    miner.serve_forever()
+    while True:
+      try:
+        miner = Miner(options.url, username, password)
+        miner.serve()
+      except Exception as e:
+        logging.error("exception in serve ... restarting client")
+        miner.error_event.set()
+
+      miner.error_event.wait()
+      miner.stop()
+      time.sleep(5)
+
+
