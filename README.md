@@ -1,5 +1,10 @@
 Fork of: https://github.com/crypto-jeronimo/pyminer <br>
-Changes: Removed everything I don't need; made it work with python3; added PiAxe as miner<br>
+Changes: 
+
+- Removed Scrypt hashing and added Miner class
+- Made it work with Python3
+- added PiAxe as miner
+- added reconnect logic on broken connections
 
 PyMiner
 =======
