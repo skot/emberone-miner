@@ -3,7 +3,7 @@ Changes:
 
 - Removed Scrypt hashing and added Miner class
 - Made it work with Python3
-- added PiAxe as miner
+- added [PiAxe](https://github.com/shufps/piaxe) as miner
 - added reconnect logic on broken connections
 
 PyMiner
