@@ -199,6 +199,18 @@ def calculate_target(difficulty):
 
     return target
 
+def calculate_difficulty_from_hash(hash_hex):
+    # Convert hash from hex to integer
+    hash_int = int(hash_hex, 16)
+
+    # Difficulty 1 Target
+    diff1_target = 0xffff0000 * 2 ** (256 - 64)
+
+    # Calculate difficulty
+    difficulty = diff1_target / hash_int
+
+    return difficulty
+
 
 def verify_work(difficulty, job, result):
 #    print(job.to_json())
@@ -231,7 +243,7 @@ def verify_work(difficulty, job, result):
     else:
         logging.debug("invalid")
 
-    return leading_zeros
+    return leading_zeros, hash_str
 
 
 

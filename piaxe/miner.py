@@ -293,7 +293,7 @@ class BM1366Miner:
                         nonce = shared.int_to_hex32(asic_result.nonce),
                         version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
                     )
-                    is_valid = shared.verify_work(difficulty, job, result)
+                    is_valid, hash = shared.verify_work(difficulty, job, result)
 
                     if not is_valid:
                         logging.error("invalid result!")
@@ -306,6 +306,8 @@ class BM1366Miner:
                             self.influx.stats.valid_shares += 1 if is_valid else 0
                             self.shares.append((1, self.influx.stats.difficulty, time.time()))
                             self.influx.stats.hashing_speed = self.hash_rate()
+                            hash_difficulty = shared.calculate_difficulty_from_hash(hash)
+                            self.influx.stats.best_difficulty = max(self.influx.stats.best_difficulty, hash_difficulty)
 
                     # restart miner with new extranonce2
                     self.new_job_event.set()

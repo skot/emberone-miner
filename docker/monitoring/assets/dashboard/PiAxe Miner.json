@@ -78,6 +78,9 @@
       },
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "continuous-RdYlGr"
+          },
           "mappings": [],
           "max": 600,
           "min": 0,
@@ -93,12 +96,13 @@
                 "value": 15
               }
             ]
-          }
+          },
+          "unit": "GHs"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 5,
         "x": 0,
         "y": 0
@@ -160,8 +164,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 3,
+        "h": 3,
+        "w": 4,
         "x": 5,
         "y": 0
       },
@@ -203,6 +207,9 @@
       "description": "",
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
           "mappings": [],
           "max": 75,
           "min": 0,
@@ -222,14 +229,15 @@
                 "value": 65
               }
             ]
-          }
+          },
+          "unit": "celsius"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 5,
-        "x": 8,
+        "x": 9,
         "y": 0
       },
       "id": 9,
@@ -270,7 +278,7 @@
       "gridPos": {
         "h": 4,
         "w": 2,
-        "x": 13,
+        "x": 14,
         "y": 0
       },
       "id": 11,
@@ -326,9 +334,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
+        "w": 2,
         "x": 5,
-        "y": 4
+        "y": 3
       },
       "id": 8,
       "options": {
@@ -389,9 +397,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 5,
-        "y": 7
+        "w": 2,
+        "x": 7,
+        "y": 3
       },
       "id": 7,
       "options": {
@@ -421,6 +429,71 @@
         }
       ],
       "title": "Invalid Shares",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUXDB}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 5,
+        "y": 6
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Value$/",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUXDB}"
+          },
+          "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"best_difficulty\")\n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _value: string(v: number) + suffix\n      })\n  })\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Best Difficulty",
       "type": "stat"
     },
     {
@@ -485,9 +558,9 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 13,
+        "w": 14,
         "x": 0,
-        "y": 10
+        "y": 9
       },
       "id": 2,
       "options": {
@@ -508,7 +581,7 @@
             "type": "influxdb",
             "uid": "${DS_INFLUXDB}"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 15s, fn: mean) \n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 5s, fn: mean) \n",
           "refId": "A"
         },
         {
@@ -517,7 +590,7 @@
             "uid": "${DS_INFLUXDB}"
           },
           "hide": false,
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 2h, fn: mean) \n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 25m, fn: mean) \n",
           "refId": "B"
         }
       ],
@@ -594,9 +667,9 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 13,
+        "w": 14,
         "x": 0,
-        "y": 17
+        "y": 16
       },
       "id": 1,
       "options": {
@@ -639,6 +712,6 @@
   "timezone": "",
   "title": "PiAxe Miner",
   "uid": "dd418553-e880-45b3-87af-f6fdee7959c1",
-  "version": 35,
+  "version": 43,
   "weekStart": ""
 }

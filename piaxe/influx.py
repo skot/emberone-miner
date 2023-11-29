@@ -15,6 +15,7 @@ class Stats:
         self.invalid_shares = 0
         self.valid_shares = 0
         self.difficulty = 512
+        self.best_difficulty = 0.0
 
         # this will never be changed
         self.started_at = time.time()
@@ -52,6 +53,7 @@ class Influx:
                     .field("invalid_shares", int(self.stats.invalid_shares)) \
                     .field("valid_shares", int(self.stats.valid_shares)) \
                     .field("uptime", int(time.time() - self.stats.started_at)) \
+                    .field("best_difficulty", float(self.stats.best_difficulty)) \
                     .field("difficulty", int(self.stats.difficulty))
 
             try:
