@@ -13,6 +13,7 @@ import threading
 from shared import shared
 
 from . import bm1366
+from . import influx
 
 SDN_PIN = 11  # SDN, output, initial high
 PGOOD_PIN = 13  # PGOOD, input, floating
@@ -21,7 +22,7 @@ PWM_PIN = 12  # PWM output on Pin 12
 LED_PIN = 19 # LED 😍
 
 LM75_ADDRESS = 0x48
-
+INFLUX_ENABLED = True
 
 class Job(shared.Job):
     def __init__(
@@ -65,6 +66,12 @@ class BM1366Miner:
         self.serial_lock = threading.Lock()
         self.stop_event = threading.Event()
         self.new_job_event = threading.Event()
+
+        self.shares = list()
+
+        if INFLUX_ENABLED:
+            self.influx = influx.Influx()
+
 
     def get_name(self):
         return "PiAxe"
@@ -111,6 +118,9 @@ class BM1366Miner:
         if init_response.nonce != 0x00006613:
             raise Exception("bm1366 not detected")
 
+        if INFLUX_ENABLED:
+            self.influx.connect()
+
         self.set_difficulty(512)
 
         self.temp_thread = threading.Thread(target=self._read_temperature)
@@ -121,6 +131,8 @@ class BM1366Miner:
 
         self.job_thread = threading.Thread(target=self._job_thread)
         self.job_thread.start()
+
+
 
     def set_led(self, state):
         GPIO.output(LED_PIN, True if state else False)
@@ -147,12 +159,16 @@ class BM1366Miner:
             celsius = temp * 0.0625
             logging.info("temperature: %.3f", celsius)
 
+            if INFLUX_ENABLED:
+                with self.influx.stats.lock:
+                    self.influx.stats.temp = celsius
+
             if celsius > 70.0:
                 logging.error("too hot, shutting down ...")
                 self.shutdown()
                 os._exit(1)
 
-            time.sleep(5)
+            time.sleep(1.5)
 
     def _serial_tx_func(self, data, debug=False):
         with self.serial_lock:
@@ -187,8 +203,21 @@ class BM1366Miner:
         return GPIO.input(PGOOD_PIN)
 
 
-    def hashrate(self):
-        pass # TODO
+    def hash_rate(self, time_period=600):
+        current_time = time.time()
+        total_work = 0
+
+        for shares, difficulty, timestamp in self.shares:
+            # Consider shares only in the last 10 minutes
+            if current_time - timestamp <= time_period:
+                total_work += shares * (difficulty << 32)
+
+        # Hash rate in H/s (Hashes per second)
+        hash_rate_hps = total_work / time_period
+
+        # Convert hash rate to GH/s
+        hash_rate_ghps = hash_rate_hps / 1e9
+        return hash_rate_ghps
 
     def _set_target(self, target):
         self._target = '%064x' % target
@@ -197,6 +226,10 @@ class BM1366Miner:
         self._difficulty = difficulty
         self._set_target(shared.calculate_target(difficulty))
         bm1366.set_job_difficulty_mask(difficulty)
+
+        if INFLUX_ENABLED:
+            with self.influx.stats.lock:
+                self.influx.stats.difficulty = difficulty
 
     def set_submit_callback(self, cb):
         self.submit_cb = cb
@@ -267,6 +300,13 @@ class BM1366Miner:
                     else:
                         self.submit_cb(result)
 
+                    if INFLUX_ENABLED:
+                        with self.influx.stats.lock:
+                            self.influx.stats.invalid_shares += 1 if not is_valid else 0
+                            self.influx.stats.valid_shares += 1 if is_valid else 0
+                            self.shares.append((1, self.influx.stats.difficulty, time.time()))
+                            self.influx.stats.hashing_speed = self.hash_rate()
+
                     # restart miner with new extranonce2
                     self.new_job_event.set()
 
@@ -278,7 +318,7 @@ class BM1366Miner:
         current_time = time.time()
         led_state = True
         while True:
-            self.new_job_event.wait(5)
+            self.new_job_event.wait(1.5)
             self.new_job_event.clear()
 
             with self.job_lock:
