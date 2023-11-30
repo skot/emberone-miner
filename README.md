@@ -13,6 +13,7 @@ The repository contains a dockered setup running on the Pi that shows some stati
 
 <img src="https://github.com/shufps/piaxe-miner/assets/3079832/28b80a15-aed1-429e-ba35-7a35026768e3" width="600px"/>
 
+The "blocks found" counter is static of course ... 
 
 PyMiner
 =======
