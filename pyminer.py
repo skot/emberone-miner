@@ -174,6 +174,7 @@ class SimpleJsonRpcClient(object):
         print(f"Error when closing socket: {e}")
 
     if self._rpc_thread:
+      logging.debug("joining rpc_thread")
       self._rpc_thread.join()
 
   def _handle_incoming_rpc(self):
@@ -246,14 +247,15 @@ class SimpleJsonRpcClient(object):
       if log_protocol:
         logging.debug('JSON-RPC Server < ' + message)
 
-      return request
+      return True
     except Exception as e:
       logging.error('Exception in send: %s' % str(e))
       self.error_event.set()
+      return False
 
   def mining_submit(self, result):
     params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce', 'version') ]
-    self.send(method = 'mining.submit', params = params)
+    return self.send(method = 'mining.submit', params = params)
 
   def connect(self, socket):
     '''Connects to a remote JSON-RPC server'''
@@ -370,9 +372,11 @@ class Miner(SimpleJsonRpcClient):
       elif request.get('method') == 'mining.submit':
         if 'result' not in reply or not reply['result']:
           logging.info('Share - Invalid')
+          minerMiner.not_accepted_callback()
           raise self.MinerWarning('Failed to accept submit', reply, request)
 
         self._accepted_shares += 1
+        minerMiner.accepted_callback()
         logging.info('Accepted shares: %d' % self._accepted_shares)
 
       # ??? *shrug*
@@ -480,7 +484,9 @@ if __name__ == '__main__':
         logging.error("exception in serve ... restarting client")
         miner.error_event.set()
 
+      logging.debug("waiting for error")
       miner.error_event.wait()
+      logging.debug("error received")
       miner.stop()
       time.sleep(5)
 

@@ -414,7 +414,7 @@ def send_work(t: WorkRequest):
         t.prev_block_hash,
         t.version
     )
-    logging.debug("%s", bytearray(job_packet_data).hex())
+    #logging.debug("%s", bytearray(job_packet_data).hex())
 
     send_BM1366((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), job_packet_data)
 

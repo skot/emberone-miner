@@ -23,6 +23,7 @@ LED_PIN = 19 # LED 😍
 
 LM75_ADDRESS = 0x48
 INFLUX_ENABLED = True
+DEBUG_BM1366 = False
 
 class Job(shared.Job):
     def __init__(
@@ -120,6 +121,13 @@ class BM1366Miner:
 
         if INFLUX_ENABLED:
             self.influx.connect()
+            try:
+                self.influx.load_last_values()
+            except Exception as e:
+                logging.error("we really don't want to start without previous values: %s", e)
+                self.shutdown()
+                os._exit(0)
+
 
         self.set_difficulty(512)
 
@@ -132,6 +140,15 @@ class BM1366Miner:
         self.job_thread = threading.Thread(target=self._job_thread)
         self.job_thread.start()
 
+        self.uptime_counter_thread = threading.Thread(target=self._uptime_counter_thread)
+        self.uptime_counter_thread.start()
+
+    def _uptime_counter_thread(self):
+        while True:
+            with self.influx.stats.lock:
+                self.influx.stats.total_uptime += 1
+                self.influx.stats.uptime += 1
+            time.sleep(1)
 
 
     def set_led(self, state):
@@ -178,7 +195,8 @@ class BM1366Miner:
                 if sent == 0:
                     raise RuntimeError("Serial connection broken")
                 total_sent += sent
-            logging.debug("-> %s", bytearray(data).hex())
+            if DEBUG_BM1366:
+                logging.debug("-> %s", bytearray(data).hex())
 
     def _serial_rx_func(self, size, timeout_ms, debug=False):
         self.serial_port.timeout = timeout_ms / 1000.0
@@ -234,6 +252,14 @@ class BM1366Miner:
     def set_submit_callback(self, cb):
         self.submit_cb = cb
 
+    def accepted_callback(self):
+        with self.influx.stats.lock:
+            self.influx.stats.accepted += 1
+
+    def not_accepted_callback(self):
+        with self.influx.stats.lock:
+            self.influx.stats.not_accepted += 1
+
     def _receive_thread(self):
         logging.info('receiving thread started ...')
         #last_response = time.time()
@@ -256,7 +282,8 @@ class BM1366Miner:
                     data[i] = self._buffer[self._read_index % 64]
                     self._read_index += 1
 
-                logging.debug("<- %s", bytes(data).hex())
+                if DEBUG_BM1366:
+                    logging.debug("<- %s", bytes(data).hex())
 
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
                 if not asic_result or not asic_result.nonce:
@@ -271,8 +298,6 @@ class BM1366Miner:
                     result_job_id = asic_result.job_id & 0xf8
                     logging.debug("work received %02x", result_job_id)
 
-                    #if result_job_id != self._latest_work_id:
-                    #    logging.warn("discarding result ... too old")
                     if result_job_id not in self._jobs:
                         logging.error("internal jobid %d not found", result_job_id)
                         continue
@@ -296,9 +321,14 @@ class BM1366Miner:
                     is_valid, hash = shared.verify_work(difficulty, job, result)
 
                     if not is_valid:
+                        # if its invalid it would be rejected
+                        # we don't try it but we can count it to not_accepted
+                        self.not_accepted_callback()
                         logging.error("invalid result!")
                     else:
-                        self.submit_cb(result)
+                        if not self.submit_cb(result):
+                            self.influx.stats.pool_errors += 1
+
 
                     if INFLUX_ENABLED:
                         with self.influx.stats.lock:
@@ -308,6 +338,7 @@ class BM1366Miner:
                             self.influx.stats.hashing_speed = self.hash_rate()
                             hash_difficulty = shared.calculate_difficulty_from_hash(hash)
                             self.influx.stats.best_difficulty = max(self.influx.stats.best_difficulty, hash_difficulty)
+                            self.influx.stats.total_best_difficulty = max(self.influx.stats.total_best_difficulty, hash_difficulty)
 
                     # restart miner with new extranonce2
                     self.new_job_event.set()
