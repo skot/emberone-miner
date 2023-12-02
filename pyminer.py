@@ -33,10 +33,10 @@ import os
 logging.basicConfig(level=logging.DEBUG,
                       format='%(asctime)s - %(levelname)s - %(message)s')
 
-minerMiner = miner.BM1366Miner()
-minerMiner.init()
+piaxeMiner = miner.BM1366Miner()
+piaxeMiner.init()
 
-USER_AGENT = minerMiner.get_name()
+USER_AGENT = piaxeMiner.get_name()
 VERSION = [0, 1]
 
 def human_readable_hashrate(hashrate):
@@ -176,6 +176,8 @@ class SimpleJsonRpcClient(object):
     if self._rpc_thread:
       logging.debug("joining rpc_thread")
       self._rpc_thread.join()
+      logging.debug("joining done")
+      self._rpc_thread = None
 
   def _handle_incoming_rpc(self):
     data = ""
@@ -280,7 +282,7 @@ class Miner(SimpleJsonRpcClient):
 
   class MinerAuthenticationException(SimpleJsonRpcClient.RequestReplyException): pass
 
-  def __init__(self, url, username, password):
+  def __init__(self, url, username, password, miner):
     SimpleJsonRpcClient.__init__(self)
 
     self._url = url
@@ -290,6 +292,9 @@ class Miner(SimpleJsonRpcClient):
     self._subscription = SubscriptionSHA256D()
 
     self._job = None
+
+    self._miner = miner
+    self._miner.set_submit_callback(self.mining_submit)
 
     self._accepted_shares = 0
 
@@ -301,7 +306,6 @@ class Miner(SimpleJsonRpcClient):
 
   # Overridden from SimpleJsonRpcClient
   def handle_reply(self, request, reply):
-    global minerMiner
 
     # New work, stop what we were doing before, and start on this.
     if reply.get('method') == 'mining.notify':
@@ -321,8 +325,7 @@ class Miner(SimpleJsonRpcClient):
         nbits = nbits,
         ntime = ntime
       )
-      minerMiner.set_submit_callback(self.mining_submit)
-      minerMiner.start_job(self._job)
+      self._miner.start_job(self._job)
 
       logging.debug('New job: job_id=%s' % job_id)
 
@@ -332,7 +335,7 @@ class Miner(SimpleJsonRpcClient):
         raise self.MinerWarning('Malformed mining.set_difficulty message', reply)
 
       (difficulty, ) = reply['params']
-      minerMiner.set_difficulty(difficulty)
+      self._miner.set_difficulty(difficulty)
 
       logging.debug('Change difficulty: difficulty=%s' % difficulty)
 
@@ -372,11 +375,11 @@ class Miner(SimpleJsonRpcClient):
       elif request.get('method') == 'mining.submit':
         if 'result' not in reply or not reply['result']:
           logging.info('Share - Invalid')
-          minerMiner.not_accepted_callback()
+          self._miner.not_accepted_callback()
           raise self.MinerWarning('Failed to accept submit', reply, request)
 
         self._accepted_shares += 1
-        minerMiner.accepted_callback()
+        self._miner.accepted_callback()
         logging.info('Accepted shares: %d' % self._accepted_shares)
 
       # ??? *shrug*
@@ -396,6 +399,9 @@ class Miner(SimpleJsonRpcClient):
     port = url.port or 9333
 
     logging.info('Starting server on %s:%d' % (hostname, port))
+    # clear error if there was any
+    self.error_event.clear()
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((hostname, port))
     self.connect(sock)
@@ -404,7 +410,7 @@ class Miner(SimpleJsonRpcClient):
 
 def sigint_handler(signal_received, frame):
     print('SIGINT (Ctrl+C) captured, exiting gracefully')
-    minerMiner.shutdown()
+    piaxeMiner.shutdown()
     os._exit(0)
 
 
@@ -475,19 +481,19 @@ if __name__ == '__main__':
   signal.signal(signal.SIGINT, sigint_handler)
 
   # Heigh-ho, heigh-ho, it's off to work we go...
-  if options.url:
-    while True:
-      try:
-        miner = Miner(options.url, username, password)
-        miner.serve()
-      except Exception as e:
-        logging.error("exception in serve ... restarting client")
-        miner.error_event.set()
+  miner = Miner(options.url, username, password, piaxeMiner)
 
-      logging.debug("waiting for error")
-      miner.error_event.wait()
-      logging.debug("error received")
-      miner.stop()
-      time.sleep(5)
+  while True:
+    try:
+      miner.serve()
+    except Exception as e:
+      logging.error("exception in serve ... restarting client")
+      miner.error_event.set()
+
+    logging.debug("waiting for error")
+    miner.error_event.wait()
+    logging.debug("error received")
+    miner.stop()
+    time.sleep(5)
 
 
