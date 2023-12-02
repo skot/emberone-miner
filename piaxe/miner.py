@@ -67,6 +67,10 @@ class BM1366Miner:
         self.serial_lock = threading.Lock()
         self.stop_event = threading.Event()
         self.new_job_event = threading.Event()
+        self.led_thread = None
+        self.led_event = threading.Event()
+
+        self.last_job_time = time.time()
 
         self.shares = list()
 
@@ -143,7 +147,11 @@ class BM1366Miner:
         self.uptime_counter_thread = threading.Thread(target=self._uptime_counter_thread)
         self.uptime_counter_thread.start()
 
+        self.led_thread = threading.Thread(target=self._led_thread)
+        self.led_thread.start()
+
     def _uptime_counter_thread(self):
+        logging.info("uptime counter thread started ...")
         while True:
             with self.influx.stats.lock:
                 self.influx.stats.total_uptime += 1
@@ -153,6 +161,26 @@ class BM1366Miner:
 
     def set_led(self, state):
         GPIO.output(LED_PIN, True if state else False)
+
+    def _led_thread(self):
+        logging.info("LED thread started ...")
+        led_state = True
+        while True:
+            # we always toggle the LED
+            led_state = not led_state
+            self.set_led(led_state)
+
+            # if for more than 5 minutes no new job is received
+            # we flash the light faster
+            if time.time() - self.last_job_time > 5*60:
+                time.sleep(0.5)
+                continue
+
+            # this gets triggered in 2s intervals
+            self.led_event.wait()
+            self.led_event.clear()
+
+
 
     def shutdown(self):
         # disable buck converter
@@ -343,13 +371,9 @@ class BM1366Miner:
                     # restart miner with new extranonce2
                     self.new_job_event.set()
 
-
-
-
     def _job_thread(self):
         logging.info("job thread started ...")
         current_time = time.time()
-        led_state = True
         while True:
             self.new_job_event.wait(1.5)
             self.new_job_event.clear()
@@ -359,7 +383,6 @@ class BM1366Miner:
                     logging.info("no job ...")
                     time.sleep(1)
                     continue
-
 
                 extranonce2 = random.randint(0, 2**31-1)
                 logging.debug("new extranonce2 %08x", extranonce2)
@@ -391,31 +414,17 @@ class BM1366Miner:
                 # do it every now and then ...
                 bm1366.request_chip_id()
 
-                # logging.info("health-checking ...")
-                # while True:
-                #     bm1366.request_chip_id()
-                #     time.sleep(1)
-                #     if time.time() - self._timestamp_last_chipid < 2000:
-                #         break
-                #     logging.info("health-checking retry ...")
-
-                # logging.info("health-checking success")
+                self.led_event.set()
 
                 bm1366.send_work(work)
-
-                led_state = not led_state
-                self.set_led(led_state)
 
                 # remember when we started the work
                 current_time = time.time()
 
 
-
-
-
-
     def start_job(self, job):
         logging.info("starting new job %s", job._job_id)
+        self.last_job_time = time.time()
         with self.job_lock:
             self.current_job = job
             self.new_job_event.set()
