@@ -2,4 +2,4 @@
 
 mkdir -p ./data/influxdb
 mkdir ./data/grafana
-chown 472:472 data/grafana -R
+chown 472:472 ./data/grafana -R
