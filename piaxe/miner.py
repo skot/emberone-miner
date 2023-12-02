@@ -167,18 +167,24 @@ class BM1366Miner:
         led_state = True
         while True:
             # we always toggle the LED
-            led_state = not led_state
-            self.set_led(led_state)
 
             # if for more than 5 minutes no new job is received
             # we flash the light faster
             if time.time() - self.last_job_time > 5*60:
+                led_state = not led_state
+                self.set_led(led_state)
                 time.sleep(0.5)
                 continue
 
             # this gets triggered in 2s intervals
-            self.led_event.wait()
-            self.led_event.clear()
+            # .wait() doesn't work reliably because it happens
+            # that the submit method hangs forever and the
+            # event wouldn't be fired then
+            if self.led_event.is_set():
+                self.led_event.clear()
+                led_state = not led_state
+                self.set_led(led_state)
+
 
 
 
