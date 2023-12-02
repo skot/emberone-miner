@@ -1,3 +1,5 @@
+### Run the setup
+
 Before the setup is run, the data directories need to be created:
 
 ```
@@ -13,3 +15,4 @@ To stop the monitoring use:
 ```
 docker compose down
 ```
+
