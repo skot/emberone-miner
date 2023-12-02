@@ -1,53 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_INFLUXDB",
-      "label": "InfluxDB",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    }
-  ],
-  "__elements": {},
-  "__requires": [
-    {
-      "type": "panel",
-      "id": "gauge",
-      "name": "Gauge",
-      "version": ""
-    },
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "10.2.2"
-    },
-    {
-      "type": "datasource",
-      "id": "influxdb",
-      "name": "InfluxDB",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "stat",
-      "name": "Stat",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -67,14 +18,14 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 1,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -127,7 +78,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  \n",
           "refId": "A"
@@ -139,7 +90,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -164,7 +115,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 3,
         "x": 5,
         "y": 0
@@ -182,7 +133,10 @@
           "fields": "/^Value$/",
           "values": false
         },
-        "text": {},
+        "text": {
+          "titleSize": 30,
+          "valueSize": 30
+        },
         "textMode": "value",
         "wideLayout": true
       },
@@ -191,7 +145,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_uptime\")\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_time: r._time, _value: uptime_formatted})\n  })",
@@ -204,7 +158,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -226,11 +180,60 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "accepted mining_stats"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Accepted"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "not_accepted mining_stats"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Not Accepted"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pool_errors mining_stats"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Pool Errors"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "best_difficulty mining_stats"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Best Difficulty"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
-        "w": 2,
+        "w": 3,
         "x": 8,
         "y": 0
       },
@@ -244,8 +247,12 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
+          "fields": "/.*/",
           "values": false
+        },
+        "text": {
+          "titleSize": 15,
+          "valueSize": 15
         },
         "textMode": "auto",
         "wideLayout": true
@@ -255,7 +262,25 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
+          },
+          "hide": false,
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"uptime\")\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_field: \"Uptime\", _time: r._time, _value: uptime_formatted})\n  })\n",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
+          },
+          "hide": false,
+          "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"best_difficulty\")\n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _field: \"Best Difficulty\",\n        _value: string(v: number) + suffix\n      })\n  })\n",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"accepted\")\n  ",
           "refId": "A"
@@ -263,7 +288,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"not_accepted\")\n  ",
@@ -272,20 +297,36 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"pool_errors\")\n  ",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"pool_errors\")\n  \n\n\n  ",
           "refId": "C"
         }
       ],
-      "title": "Shares",
+      "title": "Session ",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
       "type": "stat"
     },
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "description": "",
       "fieldConfig": {
@@ -320,7 +361,7 @@
       "gridPos": {
         "h": 8,
         "w": 5,
-        "x": 10,
+        "x": 11,
         "y": 0
       },
       "id": 9,
@@ -343,7 +384,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n  ",
           "refId": "A"
@@ -355,43 +396,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
-      },
-      "description": "",
-      "gridPos": {
-        "h": 4,
-        "w": 2,
-        "x": 15,
-        "y": 0
-      },
-      "id": 11,
-      "options": {
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        },
-        "content": "<center><font size=\"20px\">0 🥹</font></center>",
-        "mode": "html"
-      },
-      "pluginVersion": "10.2.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
-          },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"invalid_shares\")\n  ",
-          "refId": "A"
-        }
-      ],
-      "title": "Blocks Found",
-      "type": "text"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -418,10 +423,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 3,
         "x": 5,
-        "y": 4
+        "y": 2
       },
       "id": 12,
       "options": {
@@ -436,6 +441,10 @@
           "fields": "/^Value$/",
           "values": false
         },
+        "text": {
+          "titleSize": 30,
+          "valueSize": 30
+        },
         "textMode": "auto",
         "wideLayout": true
       },
@@ -444,7 +453,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_best_difficulty\")\n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _value: string(v: number) + suffix\n      })\n  })\n",
           "refId": "A"
@@ -456,7 +465,43 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
+      },
+      "description": "",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 5,
+        "y": 4
+      },
+      "id": 11,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<center><font size=\"20px\">0 🥹</font></center>",
+        "mode": "html"
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
+          },
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"invalid_shares\")\n  ",
+          "refId": "A"
+        }
+      ],
+      "title": "Blocks Found",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -515,7 +560,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 15,
+        "w": 16,
         "x": 0,
         "y": 8
       },
@@ -536,7 +581,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 5s, fn: mean) \n",
           "refId": "A"
@@ -544,7 +589,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 25m, fn: mean) \n",
@@ -557,7 +602,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -624,7 +669,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 7,
+        "w": 8,
         "x": 0,
         "y": 15
       },
@@ -645,7 +690,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n|> aggregateWindow(every: 1m, fn: mean) ",
           "refId": "A"
@@ -657,7 +702,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -717,7 +762,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 7,
+        "x": 8,
         "y": 15
       },
       "id": 14,
@@ -737,7 +782,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mining_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"pool_errors\")\n  |> difference()\n  ",
           "refId": "A"
@@ -754,13 +799,13 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "PiAxe Miner",
   "uid": "dd418553-e880-45b3-87af-f6fdee7959c1",
-  "version": 56,
+  "version": 65,
   "weekStart": ""
 }
