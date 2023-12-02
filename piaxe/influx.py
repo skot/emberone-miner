@@ -21,27 +21,17 @@ class Stats:
         self.not_accepted = 0
         self.total_uptime = 0
         self.total_best_difficulty = 0.0
-        # self.total_valid_shares = 0
-        # self.total_invalid_shares = 0
-        # self.total_accepted = 0
-        # self.total_not_accepted = 0
-
-        # this will never be changed
         self.uptime = 0
 
         self.lock = threading.Lock()
 
     def import_dict(self, data):
-    #     self.best_difficulty = data.get('best_difficulty', self.best_difficulty)
         self.total_uptime = data.get('total_uptime', self.total_uptime)
         self.total_best_difficulty = data.get('total_best_difficulty', self.total_best_difficulty)
         print(json.dumps(data, indent=4))
-    #     self.total_valid_shares = data.get('total_valid_shares', self.total_valid_shares)
-    #     self.total_invalid_shares = data.get('total_invalid_shares', self.total_invalid_shares)
-    #     self.total_accepted = data.get('total_accepted', self.total_accepted)
-    #     self.total_not_accepted = data.get('total_not_accepted', self.total_not_accepted)
         logging.info("loaded total uptime: %s seconds", self.total_uptime)
         logging.info("loaded total best difficulty: %f.3", self.total_best_difficulty)
+
 class Influx:
     def __init__(self):
         # InfluxDB settings (replace with your own settings)
@@ -79,10 +69,6 @@ class Influx:
                     .field("not_accepted", int(self.stats.not_accepted)) \
                     .field("total_uptime", int(self.stats.total_uptime)) \
                     .field("difficulty", int(self.stats.difficulty))
-                    # .field("total_valid_shares", int(self.stats.total_valid_shares)) \
-                    # .field("total_invalid_shares", int(self.stats.total_invalid_shares)) \
-                    # .field("total_accepted", int(self.stats.total_accepted)) \
-                    # .field("total_not_accepted", int(self.stats.total_not_accepted)) \
 
             try:
                 write_api = self.client.write_api(write_options=SYNCHRONOUS)
@@ -122,35 +108,6 @@ class Influx:
 
         self.stats.import_dict(last_data)
 
-
-
-    def _submit_data(self, stats: Stats):
-        # Timezone - Berlin
-
-        with stats:
-            # Data structure
-            data = [
-                {
-                    "measurement": "mining_stats",
-                    "time": datetime.now(self.tz).isoformat(),
-                    "fields": {
-                        "temperature": float(stats.temp),
-                        "hashing_speed": float(stats.hashing_speed),
-                        "invalid_shares": int(stats.invalid_shares),
-                        "difficulty": int(stats.difficulty)
-                    }
-                }
-            ]
-
-        if not self.client:
-            logging.error("no influx client")
-            return
-
-        # Write data
-        try:
-            self.client.write_points(data)
-        except Exception as e:
-            logging.error("writing to influx failed: %s", e)
 
     def close(self):
         # Close the connection
