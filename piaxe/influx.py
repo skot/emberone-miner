@@ -28,7 +28,6 @@ class Stats:
     def import_dict(self, data):
         self.total_uptime = data.get('total_uptime', self.total_uptime)
         self.total_best_difficulty = data.get('total_best_difficulty', self.total_best_difficulty)
-        print(json.dumps(data, indent=4))
         logging.info("loaded total uptime: %s seconds", self.total_uptime)
         logging.info("loaded total best difficulty: %f.3", self.total_best_difficulty)
 
@@ -105,6 +104,8 @@ class Influx:
         for table in tables:
             for record in table.records:
                 last_data[record.get_field()] = record.get_value()
+
+        logging.debug("loaded values:\n"+json.dumps(last_data, indent=4))
 
         self.stats.import_dict(last_data)
 

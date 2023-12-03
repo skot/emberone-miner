@@ -110,7 +110,7 @@ class BM1366Miner:
         GPIO.output(SDN_PIN, True)
 
         while (not self._is_power_good()):
-            print("power not good ... waiting ...")
+            logging.info("power not good ... waiting ...")
             time.sleep(5)
 
         # set the hardware dependent functions for serial and reset
@@ -118,6 +118,7 @@ class BM1366Miner:
 
         # init bm1366
         bm1366.init(485)
+        logging.info("waiting for chipid response ...")
         init_response = bm1366.receive_work()
 
         if init_response.nonce != 0x00006613:
@@ -193,6 +194,7 @@ class BM1366Miner:
         logging.info("shutdown miner ...")
         GPIO.output(SDN_PIN, False)
         self.set_led(False)
+        GPIO.cleanup()
 
     def _read_temperature(self):
         while True:

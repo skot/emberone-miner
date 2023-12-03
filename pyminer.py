@@ -30,8 +30,22 @@ import logging
 import piaxe
 import signal
 import os
-logging.basicConfig(level=logging.DEBUG,
-                      format='%(asctime)s - %(levelname)s - %(message)s')
+import datetime
+
+# Define a global variable to enable or disable file logging
+LOG_FILE_ENABLED = True
+
+if LOG_FILE_ENABLED:
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = f"pyminer_{timestamp}.log"
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        filename=log_filename,
+                        filemode='w')
+else:
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 piaxeMiner = miner.BM1366Miner()
 piaxeMiner.init()
@@ -187,14 +201,16 @@ class SimpleJsonRpcClient(object):
         if '\n' in data:
           (line, data) = data.split('\n', 1)
         else:
-          chunk = self._socket.recv(1024)
-
-          if not chunk:
-            raise Exception("tcp connection closed ...")
-
-          chunk = chunk.decode('utf-8')
-          data += chunk
-          continue
+          try:
+            chunk = self._socket.recv(1024)
+            if not chunk:
+              raise Exception("tcp connection closed ...")
+            chunk = chunk.decode('utf-8')
+            data += chunk
+            continue
+          except socket.timeout:
+            # we have to handle it but we don't care actually
+            continue
 
         if log_protocol:
           logging.debug('JSON-RPC Server > ' + line)
@@ -250,6 +266,9 @@ class SimpleJsonRpcClient(object):
         logging.debug('JSON-RPC Server < ' + message)
 
       return True
+    except socket.timeout:
+      logging.error("timeout on send: %s" % str(e))
+      self.error_event.set()
     except Exception as e:
       logging.error('Exception in send: %s' % str(e))
       self.error_event.set()
@@ -266,6 +285,8 @@ class SimpleJsonRpcClient(object):
       raise self.ClientException('Already connected')
 
     self._socket = socket
+    # submit sometimes would hang forever
+    self._socket.settimeout(10)
 
     self._rpc_thread = threading.Thread(target = self._handle_incoming_rpc)
     self._rpc_thread.daemon = True
