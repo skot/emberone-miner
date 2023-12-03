@@ -33,7 +33,7 @@ import os
 import datetime
 
 # Define a global variable to enable or disable file logging
-LOG_FILE_ENABLED = True
+LOG_FILE_ENABLED = False #True
 
 if LOG_FILE_ENABLED:
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -502,10 +502,10 @@ if __name__ == '__main__':
   signal.signal(signal.SIGINT, sigint_handler)
 
   # Heigh-ho, heigh-ho, it's off to work we go...
-  miner = Miner(options.url, username, password, piaxeMiner)
 
   while True:
     try:
+      miner = Miner(options.url, username, password, piaxeMiner)
       miner.serve()
     except Exception as e:
       logging.error("exception in serve ... restarting client")
