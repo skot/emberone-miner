@@ -15,11 +15,6 @@ from shared import shared
 from . import bm1366
 from . import influx
 
-SDN_PIN = 11  # SDN, output, initial high
-PGOOD_PIN = 13  # PGOOD, input, floating
-NRST_PIN = 15  # NRST, output, initial high
-PWM_PIN = 12  # PWM output on Pin 12
-LED_PIN = 19 # LED 😍
 
 LM75_ADDRESS = 0x48
 INFLUX_ENABLED = True
@@ -41,6 +36,95 @@ class Job(shared.Job):
         max_nonce=0x7fffffff,
     ):
         super().__init__(job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime, extranonce1, extranonce2_size, max_nonce)
+
+
+class Board:
+    def set_fan_speed(self, speed):
+        raise NotImplementedError
+
+    def read_temperature(self):
+        raise NotImplementedError
+
+    def set_led(self, state):
+        raise NotImplementedError
+
+    def reset_func(self, state):
+        raise NotImplementedError
+
+    def shutdown(self):
+        raise NotImplementedError
+
+    def serial_port(self):
+        raise NotImplementedError
+
+
+class RPiHardware(Board):
+    SDN_PIN = 11  # SDN, output, initial high
+    PGOOD_PIN = 13  # PGOOD, input, floating
+    NRST_PIN = 15  # NRST, output, initial high
+    PWM_PIN = 12  # PWM output on Pin 12
+    LED_PIN = 19  # LED 😍
+
+    def __init__(self):
+        # Setup GPIO
+        GPIO.setmode(GPIO.BOARD)  # Use Physical pin numbering
+
+        # Initialize GPIO Pins
+        GPIO.setup(RPiHardware.SDN_PIN, GPIO.OUT, initial=GPIO.LOW)
+        # Default is floating
+        GPIO.setup(RPiHardware.PGOOD_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(RPiHardware.NRST_PIN, GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.setup(RPiHardware.LED_PIN, GPIO.OUT, initial=GPIO.LOW)
+
+        # Create an SMBus instance
+        self._bus = smbus.SMBus(1)  # 1 indicates /dev/i2c-1
+
+        pwm = HardwarePWM(pwm_channel=0, hz=1000)
+        pwm.start(80)  # full duty cycle
+
+        # Initialize serial communication
+        self._serial_port = serial.Serial(
+            port="/dev/ttyS0",  # For GPIO serial communication use /dev/ttyS0
+            baudrate=115200,    # Set baud rate to 115200
+            bytesize=serial.EIGHTBITS,     # Number of data bits
+            parity=serial.PARITY_NONE,     # No parity
+            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
+            timeout=1                      # Set a read timeout
+        )
+
+        GPIO.output(RPiHardware.SDN_PIN, True)
+
+        def is_power_good(self):
+            return GPIO.input(RPiHardware.PGOOD_PIN)
+
+        while (not is_power_good()):
+            print("power not good ... waiting ...")
+            time.sleep(5)
+
+    def set_fan_speed(self, speed):
+        pass
+
+    def read_temperature(self):
+        data = self._bus.read_i2c_block_data(LM75_ADDRESS, 0, 2)
+
+        # Convert the data to 12-bits
+        return (data[0] << 4) | (data[1] >> 4)
+
+    def set_led(self, state):
+        GPIO.output(RPiHardware.LED_PIN, True if state else False)
+
+    def reset_func(self, state):
+        GPIO.output(RPiHardware.NRST_PIN, True if state else False)
+
+    def shutdown(self):
+        # disable buck converter
+        logging.info("shutdown miner ...")
+        GPIO.output(RPiHardware.SDN_PIN, False)
+        self.set_led(False)
+
+    def serial_port(self):
+        return self._serial_port
+
 
 class BM1366Miner:
     def __init__(self):
@@ -77,44 +161,16 @@ class BM1366Miner:
         if INFLUX_ENABLED:
             self.influx = influx.Influx()
 
-
     def get_name(self):
         return "PiAxe"
 
     def init(self):
-        # Setup GPIO
-        GPIO.setmode(GPIO.BOARD)  # Use Physical pin numbering
-
-        # Initialize GPIO Pins
-        GPIO.setup(SDN_PIN, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(PGOOD_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Default is floating
-        GPIO.setup(NRST_PIN, GPIO.OUT, initial=GPIO.HIGH)
-        GPIO.setup(LED_PIN, GPIO.OUT, initial=GPIO.LOW)
-
-        # Create an SMBus instance
-        self._bus = smbus.SMBus(1)  # 1 indicates /dev/i2c-1
-
-        pwm = HardwarePWM(pwm_channel=0, hz=1000)
-        pwm.start(80) # full duty cycle
-
-        # Initialize serial communication
-        self.serial_port = serial.Serial(
-            port="/dev/ttyS0",  # For GPIO serial communication use /dev/ttyS0
-            baudrate=115200,    # Set baud rate to 115200
-            bytesize=serial.EIGHTBITS,    # Number of data bits
-            parity=serial.PARITY_NONE,    # No parity
-            stopbits=serial.STOPBITS_ONE, # Number of stop bits
-            timeout=1                     # Set a read timeout
-        )
-
-        GPIO.output(SDN_PIN, True)
-
-        while (not self._is_power_good()):
-            logging.info("power not good ... waiting ...")
-            time.sleep(5)
+        self.hardware = RPiHardware()
+        self.serial_port = self.hardware.serial_port()
 
         # set the hardware dependent functions for serial and reset
-        bm1366.ll_init(self._serial_tx_func, self._serial_rx_func, self._reset_func)
+        bm1366.ll_init(self._serial_tx_func, self._serial_rx_func,
+                       self.hardware.reset_func)
 
         # init bm1366
         bm1366.init(485)
@@ -130,13 +186,12 @@ class BM1366Miner:
                 self.influx.load_last_values()
             except Exception as e:
                 logging.error("we really don't want to start without previous values: %s", e)
-                self.shutdown()
+                self.hardware.shutdown()
                 os._exit(0)
-
 
         self.set_difficulty(512)
 
-        self.temp_thread = threading.Thread(target=self._read_temperature)
+        self.temp_thread = threading.Thread(target=self._monitor_temperature)
         self.temp_thread.start()
 
         self.receive_thread = threading.Thread(target=self._receive_thread)
@@ -159,10 +214,6 @@ class BM1366Miner:
                 self.influx.stats.uptime += 1
             time.sleep(1)
 
-
-    def set_led(self, state):
-        GPIO.output(LED_PIN, True if state else False)
-
     def _led_thread(self):
         logging.info("LED thread started ...")
         led_state = True
@@ -173,7 +224,7 @@ class BM1366Miner:
             # we flash the light faster
             if time.time() - self.last_job_time > 5*60:
                 led_state = not led_state
-                self.set_led(led_state)
+                self.hardware.set_led(led_state)
                 time.sleep(0.5)
                 continue
 
@@ -186,24 +237,9 @@ class BM1366Miner:
                 led_state = not led_state
                 self.set_led(led_state)
 
-
-
-
-    def shutdown(self):
-        # disable buck converter
-        logging.info("shutdown miner ...")
-        GPIO.output(SDN_PIN, False)
-        self.set_led(False)
-        GPIO.cleanup()
-
-    def _read_temperature(self):
+    def _monitor_temperature(self):
         while True:
-            # Read two bytes of data from the temperature register
-            data = self._bus.read_i2c_block_data(LM75_ADDRESS, 0, 2)
-
-            # Convert the data to 12-bits
-            temp = (data[0] << 4) | (data[1] >> 4)
-
+            temp = self.hardware.read_temperature()
             # Convert to a signed 12-bit value
             if temp > 2047:
                 temp -= 4096
@@ -218,7 +254,7 @@ class BM1366Miner:
 
             if celsius > 70.0:
                 logging.error("too hot, shutting down ...")
-                self.shutdown()
+                self.hardware.shutdown()
                 os._exit(1)
 
             time.sleep(1.5)
@@ -246,16 +282,6 @@ class BM1366Miner:
             return data
 
         return None
-
-    def _reset_func(self):
-        GPIO.output(NRST_PIN, True)
-        time.sleep(0.5)
-        GPIO.output(NRST_PIN, False)
-        time.sleep(0.5)
-
-    def _is_power_good(self):
-        return GPIO.input(PGOOD_PIN)
-
 
     def hash_rate(self, time_period=600):
         current_time = time.time()
