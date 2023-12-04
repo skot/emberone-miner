@@ -81,7 +81,7 @@
             "type": "influxdb",
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  \n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> last()  \n",
           "refId": "A"
         }
       ],
@@ -150,7 +150,7 @@
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_uptime\")\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_time: r._time, _value: uptime_formatted})\n  })",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1y)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_uptime\")\n  |> last()\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_time: r._time, _value: uptime_formatted})\n  })",
           "refId": "A"
         }
       ],
@@ -268,7 +268,7 @@
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"uptime\")\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_field: \"Uptime\", _time: r._time, _value: uptime_formatted})\n  })\n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"uptime\")\n  |> last()  \n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_field: \"Uptime\", _time: r._time, _value: uptime_formatted})\n  })\n",
           "refId": "D"
         },
         {
@@ -277,7 +277,7 @@
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
-          "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"best_difficulty\")\n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _field: \"Best Difficulty\",\n        _value: string(v: number) + suffix\n      })\n  })\n",
+          "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"best_difficulty\")\n  |> last()  \n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _field: \"Best Difficulty\",\n        _value: string(v: number) + suffix\n      })\n  })\n",
           "refId": "E"
         },
         {
@@ -285,7 +285,7 @@
             "type": "influxdb",
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"accepted\")\n  ",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"accepted\")\n  |> last()  \n  ",
           "refId": "A"
         },
         {
@@ -294,7 +294,7 @@
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"not_accepted\")\n  ",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"not_accepted\")\n  |> last()  \n  ",
           "refId": "B"
         },
         {
@@ -303,7 +303,7 @@
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"pool_errors\")\n  \n\n\n  ",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"pool_errors\")\n  |> last()  \n  \n\n\n  ",
           "refId": "C"
         }
       ],
@@ -390,7 +390,7 @@
             "type": "influxdb",
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n  ",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n  |> last()  \n  ",
           "refId": "A"
         }
       ],
@@ -460,7 +460,7 @@
             "type": "influxdb",
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
-          "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_best_difficulty\")\n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _value: string(v: number) + suffix\n      })\n  })\n",
+          "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -1y)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_best_difficulty\")\n  |> last()  \n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _value: string(v: number) + suffix\n      })\n  })\n",
           "refId": "A"
         }
       ],
@@ -525,7 +525,7 @@
             "type": "influxdb",
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_blocks_found\")\n  |> map(fn: (r) => {\n      emoji = if r._value == 0 then \"🥹\" else \"🥳\"\n      return ({_field: r._field, _time: r._time, _value: string(v: r._value) + emoji})\n  })\n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1y)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_blocks_found\")\n  |> last()  \n  |> map(fn: (r) => {\n      emoji = if r._value == 0 then \"🥹\" else \"🥳\"\n      return ({_field: r._field, _time: r._time, _value: string(v: r._value) + emoji})\n  })\n",
           "refId": "A"
         }
       ],
@@ -834,8 +834,8 @@
       {
         "current": {
           "selected": true,
-          "text": "testnet",
-          "value": "testnet"
+          "text": "mainnet",
+          "value": "mainnet"
         },
         "hide": 0,
         "includeAll": false,
@@ -843,12 +843,12 @@
         "name": "network",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "mainnet",
             "value": "mainnet"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "testnet",
             "value": "testnet"
           },
@@ -873,6 +873,6 @@
   "timezone": "",
   "title": "PiAxe Miner",
   "uid": "dd418553-e880-45b3-87af-f6fdee7959c1",
-  "version": 73,
+  "version": 75,
   "weekStart": ""
 }
