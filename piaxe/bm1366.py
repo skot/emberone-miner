@@ -336,7 +336,10 @@ def send_read_address():
     send_BM1366(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
 
 def reset():
-    reset_func()
+    reset_func(True)
+    time.sleep(0.5)
+    reset_func(False)
+    time.sleep(0.5)
 
 def init(frequency):
     logging.info("Initializing BM1366")

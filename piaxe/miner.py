@@ -94,12 +94,12 @@ class RPiHardware(Board):
 
         GPIO.output(RPiHardware.SDN_PIN, True)
 
-        def is_power_good(self):
-            return GPIO.input(RPiHardware.PGOOD_PIN)
-
-        while (not is_power_good()):
+        while (not self._is_power_good()):
             print("power not good ... waiting ...")
             time.sleep(5)
+
+    def _is_power_good(self):
+        return GPIO.input(RPiHardware.PGOOD_PIN)
 
     def set_fan_speed(self, speed):
         pass
@@ -160,6 +160,9 @@ class BM1366Miner:
 
         if INFLUX_ENABLED:
             self.influx = influx.Influx()
+
+    def shutdown(self):
+        self.hardware.shutdown()
 
     def get_name(self):
         return "PiAxe"
@@ -238,7 +241,7 @@ class BM1366Miner:
             if self.led_event.is_set():
                 self.led_event.clear()
                 led_state = not led_state
-                self.set_led(led_state)
+                self.hardware.set_led(led_state)
 
     def _monitor_temperature(self):
         while True:
