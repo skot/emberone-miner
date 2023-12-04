@@ -4,6 +4,7 @@ import logging
 import random
 import binascii
 import json
+from enum import Enum
 
 
 
@@ -165,6 +166,23 @@ class Job:
         # Deserialize from JSON
         data = json.loads(json_str)
         return cls.from_dict(data)
+
+
+class BitcoinNetwork(Enum):
+    MAINNET = 1
+    TESTNET = 2
+    REGTEST = 3
+    UNKNOWN = 4
+
+def detect_btc_network(address):
+    if address.startswith("1") or address.startswith("3") or address.startswith("bc1"):
+        return BitcoinNetwork.MAINNET
+    elif address.startswith("m") or address.startswith("n") or address.startswith("2") or address.startswith("tb1"):
+        return BitcoinNetwork.TESTNET
+    elif address.startswith("bcrt1"):
+        return BitcoinNetwork.REGTEST
+    else:
+        return BitcoinNetwork.UNKNOWN
 
 def int_to_hex32(v):
     return f"{v:08x}"

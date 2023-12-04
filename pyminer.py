@@ -510,7 +510,14 @@ if __name__ == '__main__':
 
   signal.signal(signal.SIGINT, sigint_handler)
 
-  piaxeMiner = miner.BM1366Miner()
+  username_parts = options.username.split(".")
+  address = username_parts[0]
+
+  network = shared.detect_btc_network(address)
+  if network == shared.BitcoinNetwork.UNKNOWN:
+    logging.error("unknown address type: %s", address)
+
+  piaxeMiner = miner.BM1366Miner(network)
   piaxeMiner.init()
 
   # Heigh-ho, heigh-ho, it's off to work we go...

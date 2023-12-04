@@ -127,7 +127,7 @@ class RPiHardware(Board):
 
 
 class BM1366Miner:
-    def __init__(self):
+    def __init__(self, network):
         self.current_job = None
         self.current_work = None
         self.serial_port = None
@@ -153,13 +153,16 @@ class BM1366Miner:
         self.new_job_event = threading.Event()
         self.led_thread = None
         self.led_event = threading.Event()
+        self.network = network
 
         self.last_job_time = time.time()
 
         self.shares = list()
 
         if INFLUX_ENABLED:
-            self.influx = influx.Influx()
+            stats_name = "mainnet_stats" if network == shared.BitcoinNetwork.MAINNET else \
+                "testnet_stats" if network == shared.BitcoinNetwork.TESTNET else "regtest_stats"
+            self.influx = influx.Influx(stats_name)
 
     def shutdown(self):
         self.hardware.shutdown()

@@ -37,13 +37,14 @@ class Stats:
         logging.info("loaded total blocks found: %d", self.total_blocks_found)
 
 class Influx:
-    def __init__(self):
+    def __init__(self, stats_name):
         # InfluxDB settings (replace with your own settings)
         self.host = 'localhost'
         self.port = 8086
         self.token = 'f37fh783hf8hq'
         self.org = 'piaxe'
         self.bucket = 'piaxe'
+        self.stats_name = stats_name
         self.client = None
         self.tz = pytz.timezone('Europe/Berlin')
         self.stats = Stats()
@@ -59,7 +60,7 @@ class Influx:
                 continue
 
             with self.stats.lock:
-                point = Point("mining_stats").time(datetime.now(self.tz), WritePrecision.NS) \
+                point = Point(f"{ self.stats_name }").time(datetime.now(self.tz), WritePrecision.NS) \
                     .field("temperature", float(self.stats.temp)) \
                     .field("hashing_speed", float(self.stats.hashing_speed)) \
                     .field("invalid_shares", int(self.stats.invalid_shares)) \
@@ -91,12 +92,26 @@ class Influx:
         except Exception as e:
             logging.error("connecting influx failed: %s", e)
 
+    def bucket_exists(self, bucket_name):
+        # List all buckets
+        buckets = self.client.buckets_api().find_buckets().buckets
+
+        # Check if the specified bucket is in the list
+        for bucket in buckets:
+            if bucket.name == bucket_name:
+                return True
+        return False
+
     def load_last_values(self):
+        if not self.bucket_exists(self.bucket):
+            logging.debug(f"Bucket {self.bucket} does not exist. Nothing imported.")
+            return
+
         # Create a query to fetch the latest records
         query = f'''
-            from(bucket: "piaxe")
+            from(bucket: "{ self.bucket }")
             |> range(start: -1y)
-            |> filter(fn: (r) => r["_measurement"] == "mining_stats")
+            |> filter(fn: (r) => r["_measurement"] == "{ self.stats_name }")
             |> last()
         '''
 
