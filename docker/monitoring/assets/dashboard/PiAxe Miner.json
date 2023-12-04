@@ -35,6 +35,7 @@
           "mappings": [],
           "max": 600,
           "min": 0,
+          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -80,7 +81,7 @@
             "type": "influxdb",
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  \n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  \n",
           "refId": "A"
         }
       ],
@@ -166,6 +167,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
+          "noValue": "No active session",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -265,7 +267,7 @@
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"uptime\")\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_field: \"Uptime\", _time: r._time, _value: uptime_formatted})\n  })\n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"uptime\")\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_field: \"Uptime\", _time: r._time, _value: uptime_formatted})\n  })\n",
           "refId": "D"
         },
         {
@@ -337,6 +339,7 @@
           "mappings": [],
           "max": 75,
           "min": 0,
+          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -386,7 +389,7 @@
             "type": "influxdb",
             "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -1h)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n  ",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n  ",
           "refId": "A"
         }
       ],
@@ -523,7 +526,7 @@
           "refId": "A"
         }
       ],
-      "title": "Blocks Found",
+      "title": "Total Blocks Found",
       "type": "stat"
     },
     {
@@ -867,6 +870,6 @@
   "timezone": "",
   "title": "PiAxe Miner",
   "uid": "dd418553-e880-45b3-87af-f6fdee7959c1",
-  "version": 70,
+  "version": 72,
   "weekStart": ""
 }
