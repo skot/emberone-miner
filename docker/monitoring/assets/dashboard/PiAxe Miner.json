@@ -99,6 +99,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
+          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -409,6 +410,7 @@
           },
           "decimals": 0,
           "mappings": [],
+          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -477,6 +479,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
+          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -831,8 +834,8 @@
       {
         "current": {
           "selected": true,
-          "text": "mainnet",
-          "value": "mainnet"
+          "text": "testnet",
+          "value": "testnet"
         },
         "hide": 0,
         "includeAll": false,
@@ -840,12 +843,12 @@
         "name": "network",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "mainnet",
             "value": "mainnet"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "testnet",
             "value": "testnet"
           },
@@ -870,6 +873,6 @@
   "timezone": "",
   "title": "PiAxe Miner",
   "uid": "dd418553-e880-45b3-87af-f6fdee7959c1",
-  "version": 72,
+  "version": 73,
   "weekStart": ""
 }
