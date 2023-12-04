@@ -50,7 +50,6 @@ class Influx:
     def _submit_thread(self):
         while True:
             if not self.client:
-                logging.error("no influx client")
                 time.sleep(10)
                 continue
 

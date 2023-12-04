@@ -32,39 +32,6 @@ import signal
 import os
 import datetime
 
-# Define a global variable to enable or disable file logging
-LOG_FILE_ENABLED = False #True
-
-if LOG_FILE_ENABLED:
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_filename = f"pyminer_{timestamp}.log"
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)s - %(message)s',
-                        filename=log_filename,
-                        filemode='w')
-else:
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-
-
-piaxeMiner = miner.BM1366Miner()
-piaxeMiner.init()
-
-USER_AGENT = piaxeMiner.get_name()
-VERSION = [0, 1]
-
-def human_readable_hashrate(hashrate):
-  '''Returns a human readable representation of hashrate.'''
-
-  if hashrate < 1000:
-    return '%2f hashes/s' % hashrate
-  if hashrate < 10000000:
-    return '%2f khashes/s' % (hashrate / 1000)
-  if hashrate < 10000000000:
-    return '%2f Mhashes/s' % (hashrate / 1000000)
-  return '%2f Ghashes/s' % (hashrate / 1000000000)
-
-
 # Subscription state
 class Subscription(object):
   '''Encapsulates the Subscription state from the JSON-RPC server'''
@@ -247,32 +214,47 @@ class SimpleJsonRpcClient(object):
     # Override this method in sub-classes to handle a message from the server
     raise self.RequestReplyWarning('Override this method')
 
+  def _send_message(self, message):
+      ''' Internal method to send a message '''
+      try:
+          self._socket.send((message + '\n').encode('utf-8'))
+      except Exception as e:
+          # Handle exceptions related to the send operation
+          raise e
 
-  def send(self, method, params):
-    '''Sends a message to the JSON-RPC server'''
+      logging.debug("send eneded")
 
-    try:
+  def send(self, method, params, timeout=10):
+      '''Sends a message to the JSON-RPC server with a timeout'''
+
       if not self._socket:
-        raise self.ClientException('Not connected')
+          raise self.ClientException('Not connected')
 
-      request = dict(id = self._message_id, method = method, params = params)
+      request = dict(id=self._message_id, method=method, params=params)
       message = json.dumps(request)
-      with self._lock:
-        self._requests[self._message_id] = request
-        self._message_id += 1
-        self._socket.send((message + '\n').encode('utf-8'))
 
+      with self._lock:
+          self._requests[self._message_id] = request
+          self._message_id += 1
+
+      # Create a thread to send the message
+      sender_thread = threading.Thread(target=self._send_message, args=(message,))
+      sender_thread.start()
+      sender_thread.join(timeout)
+
+      if sender_thread.is_alive():
+          # Handle the timeout situation
+          logging.error("Timeout occurred in send method")
+          self.error_event.set()
+          return False
+
+      # If here, the send operation completed within the timeout
       if log_protocol:
-        logging.debug('JSON-RPC Server < ' + message)
+          logging.debug('JSON-RPC Server < ' + message)
 
       return True
-    except socket.timeout:
-      logging.error("timeout on send: %s" % str(e))
-      self.error_event.set()
-    except Exception as e:
-      logging.error('Exception in send: %s' % str(e))
-      self.error_event.set()
-      return False
+
+
 
   def mining_submit(self, result):
     params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce', 'version') ]
@@ -427,13 +409,41 @@ class Miner(SimpleJsonRpcClient):
     sock.connect((hostname, port))
     self.connect(sock)
 
-    self.send(method = 'mining.subscribe', params = [ "%s/%s" % (USER_AGENT, '.'.join(str(p) for p in VERSION)) ])
+    self.send(method = 'mining.subscribe', params = [ f"{self._miner.get_user_agent()}" ])
+
+  def shutdown(self):
+    self._miner.shutdown()
+
+
+
+def setup_logging(log_level, log_filename):
+    # Create a logger
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+
+    # Create a formatter
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+    # Create a handler for logging to the console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # If a log filename is provided, also log to a file
+    if log_filename:
+        file_handler = logging.FileHandler(log_filename, mode='w')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+
+# make it accessible to the sigint handler
+pyminer = None
 
 def sigint_handler(signal_received, frame):
     print('SIGINT (Ctrl+C) captured, exiting gracefully')
-    piaxeMiner.shutdown()
+    if pyminer is not None:
+      pyminer.shutdown()
     os._exit(0)
-
 
 # CLI for cpu mining
 if __name__ == '__main__':
@@ -458,7 +468,7 @@ if __name__ == '__main__':
   parser.add_argument('-P', '--dump-protocol', dest = 'protocol', action ='store_true', help = 'show all JSON-RPC chatter')
   parser.add_argument('-d', '--debug', action ='store_true', help = 'show extra debug information')
 
-  parser.add_argument('-v', '--version', action = 'version', version = '%s/%s' % (USER_AGENT, '.'.join(str(v) for v in VERSION)))
+  parser.add_argument('-l', '--log-file', dest = 'logfile', default='', help = 'log to file')
 
   options = parser.parse_args(sys.argv[1:])
 
@@ -489,10 +499,9 @@ if __name__ == '__main__':
   if options.debug:
     log_level = logging.DEBUG
 
+  setup_logging(log_level, options.logfile)
+
   log_protocol = options.protocol
-
-  # Configure logging with time
-
 
   # The want a daemon, give them a daemon
   if options.background:
@@ -501,20 +510,23 @@ if __name__ == '__main__':
 
   signal.signal(signal.SIGINT, sigint_handler)
 
+  piaxeMiner = miner.BM1366Miner()
+  piaxeMiner.init()
+
   # Heigh-ho, heigh-ho, it's off to work we go...
 
   while True:
     try:
-      miner = Miner(options.url, username, password, piaxeMiner)
-      miner.serve()
+      pyminer = Miner(options.url, username, password, piaxeMiner)
+      pyminer.serve()
     except Exception as e:
       logging.error("exception in serve ... restarting client")
-      miner.error_event.set()
+      pyminer.error_event.set()
 
     logging.debug("waiting for error")
-    miner.error_event.wait()
+    pyminer.error_event.wait()
     logging.debug("error received")
-    miner.stop()
+    pyminer.stop()
     time.sleep(5)
 
 

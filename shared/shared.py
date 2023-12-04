@@ -238,12 +238,7 @@ def verify_work(difficulty, job, result):
     leading_zeros = count_leading_zeros(hash_str)
     logging.debug("result: %s (%d)", hash_str, leading_zeros)
 
-    if hash_str < target:
-        logging.debug("valid")
-    else:
-        logging.debug("invalid")
-
-    return leading_zeros, hash_str
+    return hash_str < target, hash_str
 
 
 

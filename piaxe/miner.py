@@ -81,6 +81,9 @@ class BM1366Miner:
     def get_name(self):
         return "PiAxe"
 
+    def get_user_agent(self):
+        return f"{self.get_name()}/0.1"
+
     def init(self):
         # Setup GPIO
         GPIO.setmode(GPIO.BOARD)  # Use Physical pin numbering
@@ -288,6 +291,8 @@ class BM1366Miner:
     def set_submit_callback(self, cb):
         self.submit_cb = cb
 
+
+
     def accepted_callback(self):
         with self.influx.stats.lock:
             self.influx.stats.accepted += 1
@@ -354,17 +359,8 @@ class BM1366Miner:
                         nonce = shared.int_to_hex32(asic_result.nonce),
                         version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
                     )
+
                     is_valid, hash = shared.verify_work(difficulty, job, result)
-
-                    if not is_valid:
-                        # if its invalid it would be rejected
-                        # we don't try it but we can count it to not_accepted
-                        self.not_accepted_callback()
-                        logging.error("invalid result!")
-                    else:
-                        if not self.submit_cb(result):
-                            self.influx.stats.pool_errors += 1
-
 
                     if INFLUX_ENABLED:
                         with self.influx.stats.lock:
@@ -378,6 +374,21 @@ class BM1366Miner:
 
                     # restart miner with new extranonce2
                     self.new_job_event.set()
+
+                # submit result without lock on the job!
+                if not is_valid:
+                    # if its invalid it would be rejected
+                    # we don't try it but we can count it to not_accepted
+                    self.not_accepted_callback()
+                    logging.error("invalid result!")
+                else:
+                    logging.info("valid result")
+                    if not self.submit_cb:
+                        logging.error("no submit callback set")
+                    elif not self.submit_cb(result):
+                        self.influx.stats.pool_errors += 1
+
+
 
     def _job_thread(self):
         logging.info("job thread started ...")
@@ -397,7 +408,7 @@ class BM1366Miner:
                 self.current_job.set_extranonce2(extranonce2)
 
                 self._internal_id += 1
-                self._latest_work_id = ((self._internal_id << 3) & 0x7f) + 0x10
+                self._latest_work_id = ((self._internal_id << 3) & 0x7f) + 0x08
 
                 work = bm1366.WorkRequest()
                 logging.debug("new work %02x", self._latest_work_id)
@@ -425,9 +436,6 @@ class BM1366Miner:
                 self.led_event.set()
 
                 bm1366.send_work(work)
-
-                # remember when we started the work
-                current_time = time.time()
 
 
     def start_job(self, job):
