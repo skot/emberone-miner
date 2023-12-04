@@ -2,7 +2,7 @@
 
 PiAxe is a Raspberry Pi mining HAT based on the BitAxe Ultra 1.3 (with BM1366) design.
 
-<img src="https://github.com/shufps/piaxe-miner/assets/3079832/e919b0ee-4c6d-4b99-aff4-64c980f68fbe" width="500px"/>
+<img src="https://github.com/shufps/piaxe-miner/assets/3079832/bde9dbb6-5687-4b4b-b0a8-7d4b83432937" width="500px"/>
 
 The repository with design files, BOM, ... can be found here:
 https://github.com/shufps/piaxe
