@@ -218,11 +218,11 @@ class SimpleJsonRpcClient(object):
       ''' Internal method to send a message '''
       try:
           self._socket.send((message + '\n').encode('utf-8'))
+          logging.debug("send successful")
       except Exception as e:
-          # Handle exceptions related to the send operation
-          raise e
+          logging.error("send failed: %s", e)
+          self.error_event.set()
 
-      logging.debug("send eneded")
 
   def send(self, method, params, timeout=10):
       '''Sends a message to the JSON-RPC server with a timeout'''
