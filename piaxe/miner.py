@@ -389,10 +389,19 @@ class BM1366Miner:
                         version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
                     )
 
-                    is_valid, hash = shared.verify_work(difficulty, job, result)
+                    is_valid, hash, zeros = shared.verify_work(difficulty, job, result)
 
                     if INFLUX_ENABLED:
                         with self.influx.stats.lock:
+                            network_target, network_zeros = shared.nbits_to_target(job._nbits)
+                            logging.debug("network-target: %s (%d)", network_target, network_zeros)
+                            logging.debug("found hash:     %s (%d)", hash, zeros)
+
+                            if hash < network_target:
+                                logging.info("it seems we found a block!")
+                                self.influx.stats.blocks_found += 1
+                                self.influx.stats.total_blocks_found += 1
+
                             self.influx.stats.invalid_shares += 1 if not is_valid else 0
                             self.influx.stats.valid_shares += 1 if is_valid else 0
                             self.shares.append((1, self.influx.stats.difficulty, time.time()))
@@ -410,12 +419,14 @@ class BM1366Miner:
                     # we don't try it but we can count it to not_accepted
                     self.not_accepted_callback()
                     logging.error("invalid result!")
-                else:
-                    logging.info("valid result")
-                    if not self.submit_cb:
-                        logging.error("no submit callback set")
-                    elif not self.submit_cb(result):
-                        self.influx.stats.pool_errors += 1
+                    continue
+
+
+                logging.info("valid result")
+                if not self.submit_cb:
+                    logging.error("no submit callback set")
+                elif not self.submit_cb(result):
+                    self.influx.stats.pool_errors += 1
 
 
 

@@ -22,14 +22,19 @@ class Stats:
         self.total_uptime = 0
         self.total_best_difficulty = 0.0
         self.uptime = 0
+        self.blocks_found = 0
+        self.total_blocks_found = 0
 
         self.lock = threading.Lock()
 
     def import_dict(self, data):
         self.total_uptime = data.get('total_uptime', self.total_uptime)
         self.total_best_difficulty = data.get('total_best_difficulty', self.total_best_difficulty)
+        self.total_blocks_found = data.get('total_blocks_found', self.total_blocks_found)
+
         logging.info("loaded total uptime: %s seconds", self.total_uptime)
         logging.info("loaded total best difficulty: %f.3", self.total_best_difficulty)
+        logging.info("loaded total blocks found: %d", self.total_blocks_found)
 
 class Influx:
     def __init__(self):
@@ -66,6 +71,8 @@ class Influx:
                     .field("accepted", int(self.stats.accepted)) \
                     .field("not_accepted", int(self.stats.not_accepted)) \
                     .field("total_uptime", int(self.stats.total_uptime)) \
+                    .field("total_blocks_found", int(self.stats.total_blocks_found)) \
+                    .field("blocks_found", int(self.stats.blocks_found)) \
                     .field("difficulty", int(self.stats.difficulty))
 
             try:

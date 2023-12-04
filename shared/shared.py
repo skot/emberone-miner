@@ -211,6 +211,22 @@ def calculate_difficulty_from_hash(hash_hex):
 
     return difficulty
 
+def nbits_to_target(nbits):
+    nbits = int(nbits, 16)
+
+    # Split nbits into the exponent and coefficient
+    exponent = nbits >> 24
+    coefficient = nbits & 0xffffff
+
+    # Convert to 256-bit target
+    target = coefficient << (8 * (exponent - 3))
+
+    # Format target as a 64-character hexadecimal string
+    target_hex = format(target, '064x')
+
+    leading_zeros = count_leading_zeros(target_hex)
+
+    return target_hex, leading_zeros
 
 def verify_work(difficulty, job, result):
 #    print(job.to_json())
@@ -236,9 +252,8 @@ def verify_work(difficulty, job, result):
     hash_be = swap_endianness_32bit(hex_to_be(hash_str))
     hash_str = bytearray(hash_be).hex()
     leading_zeros = count_leading_zeros(hash_str)
-    logging.debug("result: %s (%d)", hash_str, leading_zeros)
 
-    return hash_str < target, hash_str
+    return hash_str < target, hash_str, leading_zeros
 
 
 
