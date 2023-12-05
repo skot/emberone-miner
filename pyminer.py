@@ -328,6 +328,9 @@ class Miner(SimpleJsonRpcClient):
         nbits = nbits,
         ntime = ntime
       )
+      if clean_jobs:
+        self._miner.clean_jobs()
+
       self._miner.start_job(self._job)
 
       logging.debug('New job: job_id=%s' % job_id)

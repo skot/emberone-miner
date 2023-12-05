@@ -83,7 +83,7 @@ class Influx:
             except Exception as e:
                 logging.error("writing to influx failed: %s", e)
 
-            time.sleep(5)
+            time.sleep(15)
 
     def connect(self):
         # Connect to InfluxDB

@@ -165,6 +165,13 @@ class BM1366Miner:
             self.influx = influx.Influx(stats_name)
 
     def shutdown(self):
+        # signal the threads to end
+        self.stop_event.set()
+
+        # join all threads
+        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.led_thread, self.uptime_counter_thread]:
+            t.join(5)
+
         self.hardware.shutdown()
 
     def get_name(self):
@@ -217,16 +224,18 @@ class BM1366Miner:
 
     def _uptime_counter_thread(self):
         logging.info("uptime counter thread started ...")
-        while True:
+        while not self.stop_event.is_set():
             with self.influx.stats.lock:
                 self.influx.stats.total_uptime += 1
                 self.influx.stats.uptime += 1
             time.sleep(1)
 
+        logging.info("uptime counter thread ended ...")
+
     def _led_thread(self):
         logging.info("LED thread started ...")
         led_state = True
-        while True:
+        while not self.stop_event.is_set():
             # we always toggle the LED
 
             # if for more than 5 minutes no new job is received
@@ -246,8 +255,10 @@ class BM1366Miner:
                 led_state = not led_state
                 self.hardware.set_led(led_state)
 
+        logging.info("LED thread ended ...")
+
     def _monitor_temperature(self):
-        while True:
+        while not self.stop_event.is_set():
             temp = self.hardware.read_temperature()
             # Convert to a signed 12-bit value
             if temp > 2047:
@@ -336,10 +347,7 @@ class BM1366Miner:
     def _receive_thread(self):
         logging.info('receiving thread started ...')
         #last_response = time.time()
-        while True:
-            if self.stop_event.is_set():
-                return
-
+        while not self.stop_event.is_set():
             byte = self._serial_rx_func(11, 100, debug=False)
 
             if not byte:
@@ -372,7 +380,7 @@ class BM1366Miner:
                     logging.debug("work received %02x", result_job_id)
 
                     if result_job_id not in self._jobs:
-                        logging.error("internal jobid %d not found", result_job_id)
+                        logging.debug("internal jobid %d not found", result_job_id)
                         continue
 
                     saved_job = self._jobs[result_job_id]
@@ -431,12 +439,14 @@ class BM1366Miner:
                 elif not self.submit_cb(result):
                     self.influx.stats.pool_errors += 1
 
+        logging.info('receiving thread ended ...')
+
 
 
     def _job_thread(self):
         logging.info("job thread started ...")
         current_time = time.time()
-        while True:
+        while not self.stop_event.is_set():
             self.new_job_event.wait(1.5)
             self.new_job_event.clear()
 
@@ -480,6 +490,13 @@ class BM1366Miner:
 
                 bm1366.send_work(work)
 
+        logging.info("job thread ended ...")
+
+    def clean_jobs(self):
+        with self.job_lock:
+            logging.info("cleaning jobs ...")
+            self._jobs = dict()
+            self.current_job = None
 
     def start_job(self, job):
         logging.info("starting new job %s", job._job_id)
@@ -488,7 +505,3 @@ class BM1366Miner:
             self.current_job = job
             self.new_job_event.set()
 
-
-    def stop(self):
-        self.stop_event.set()
-        self.job_thread.join()
