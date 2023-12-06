@@ -325,7 +325,10 @@ class BM1366Miner:
         self._target = '%064x' % target
 
     def set_difficulty(self, difficulty):
-        self._difficulty = max(difficulty, 512)
+        # restrict to min 512
+        difficulty = max(difficulty, 512)
+
+        self._difficulty = difficulty
         self._set_target(shared.calculate_target(difficulty))
         bm1366.set_job_difficulty_mask(difficulty)
 
