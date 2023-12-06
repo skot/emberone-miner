@@ -141,6 +141,7 @@ class BM1366Miner:
         self._latest_work_id = 0
         self._jobs = dict()
         self._timestamp_last_chipid = 0
+        self.last_response = time.time()
 
         self.tracker_send = list()
         self.tracker_received = list()
@@ -239,7 +240,8 @@ class BM1366Miner:
         while not self.stop_event.is_set():
             # if for more than 5 minutes no new job is received
             # we flash the light faster
-            if time.time() - self.last_job_time > 5*60:
+            if time.time() - self.last_job_time > 5*60 or \
+                time.time() - self.last_response > 5*60:
                 led_state = not led_state
                 self.hardware.set_led(led_state)
                 time.sleep(0.25)
@@ -380,7 +382,7 @@ class BM1366Miner:
                     continue
 
                 with self.job_lock:
-                    last_response = time.time()
+                    self.last_response = time.time()
                     result_job_id = asic_result.job_id & 0xf8
                     logging.debug("work received %02x", result_job_id)
 
