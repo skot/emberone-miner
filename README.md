@@ -23,7 +23,9 @@ Influx and Grafana
 
 The repository contains a dockered setup running on the Pi that shows some statistics:
 
-<img src="https://github.com/shufps/piaxe-miner/assets/3079832/45fd0a7d-43b6-4b28-909e-6661972ef95a" width="600px"/>
+
+
+<img src="https://github.com/shufps/piaxe-miner/assets/3079832/8d34ec13-15bd-4dd4-abd3-9588c823c494" width="600px"/>
 
 The "blocks found" counter is static of course ... 
 
