@@ -236,14 +236,12 @@ class BM1366Miner:
         logging.info("LED thread started ...")
         led_state = True
         while not self.stop_event.is_set():
-            # we always toggle the LED
-
             # if for more than 5 minutes no new job is received
             # we flash the light faster
             if time.time() - self.last_job_time > 5*60:
                 led_state = not led_state
                 self.hardware.set_led(led_state)
-                time.sleep(0.5)
+                time.sleep(0.25)
                 continue
 
             # this gets triggered in 2s intervals
@@ -254,6 +252,9 @@ class BM1366Miner:
                 self.led_event.clear()
                 led_state = not led_state
                 self.hardware.set_led(led_state)
+                continue
+
+            time.sleep(0.25)
 
         logging.info("LED thread ended ...")
 
