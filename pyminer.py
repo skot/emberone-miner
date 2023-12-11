@@ -355,14 +355,20 @@ class Miner(SimpleJsonRpcClient):
 
         (tmp, extranonce1, extranonce2_size) = reply['result']
 
-        if not isinstance(tmp, list) or len(tmp) != 1 or not isinstance(tmp[0], list) or not len(tmp[0]) == 2:
+        if not isinstance(tmp, list) or len(tmp) < 1 or not isinstance(tmp[0], list) or not len(tmp[0]) == 2:
           raise self.MinerWarning('Reply to mining.subscribe is malformed', reply, request)
 
-        (mining_notify, subscription_id) = tmp[0]
+        notify_subscription_id = None
+        for subscription in tmp:
+          if subscription[0] == "mining.notify":
+            notify_subscription_id = subscription[1]
 
-        self._subscription.set_subscription(subscription_id, extranonce1, extranonce2_size)
+        if notify_subscription_id == None:
+          raise self.MinerWarning('Reply to mining.subscribe is malformed', reply, request)
 
-        logging.debug('Subscribed: subscription_id=%s' % subscription_id)
+        self._subscription.set_subscription(notify_subscription_id, extranonce1, extranonce2_size)
+
+        logging.debug('Subscribed: subscription_id=%s' % notify_subscription_id)
 
         # Request authentication
         self.send(method = 'mining.authorize', params = [ self.username, self.password ])
