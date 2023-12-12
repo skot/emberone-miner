@@ -109,8 +109,17 @@ class Job:
         extranonce2 = random.randint(0, 2**31-1)
         self.set_extranonce2(extranonce2)
 
+    def _limit_extranonce2(self, extranonce2):
+        # Convert extranonce2 to hex
+        hex_extranonce2 = int_to_hex32(extranonce2)
+
+        # Ensure the hex string length is twice extranonce2_size
+        hex_extranonce2 = hex_extranonce2[:2 * self._extranonce2_size].zfill(2 * self._extranonce2_size)
+
+        return hex_extranonce2
+
     def set_extranonce2(self, extranonce2):
-        self._extranonce2 = int_to_hex32(extranonce2)
+        self._extranonce2 = self._limit_extranonce2(extranonce2)
 
         coinbase_bin = binascii.unhexlify(self._coinb1) + binascii.unhexlify(self._extranonce1) + binascii.unhexlify(self._extranonce2) + binascii.unhexlify(self._coinb2)
         coinbase_hash_bin = sha256d(coinbase_bin)
