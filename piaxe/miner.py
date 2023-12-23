@@ -90,7 +90,7 @@ class RPiHardware(Board):
 
         # Initialize serial communication
         self._serial_port = serial.Serial(
-            port="/dev/ttyS0",  # For GPIO serial communication use /dev/ttyS0
+            port=self.config['serial_port'],  # For GPIO serial communication use /dev/ttyS0
             baudrate=115200,    # Set baud rate to 115200
             bytesize=serial.EIGHTBITS,     # Number of data bits
             parity=serial.PARITY_NONE,     # No parity

@@ -9,3 +9,4 @@ piaxe:
   pwm_hz: 1000
   pwm_duty_cycle: 80
   lm75_address: 0x48
+  serial_port: "/dev/ttyS0"
