@@ -1,4 +1,4 @@
-influx_enabled: true
+influx_enabled: false
 debug_bm1366: false
 
 piaxe:

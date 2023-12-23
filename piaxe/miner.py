@@ -232,9 +232,10 @@ class BM1366Miner:
     def _uptime_counter_thread(self):
         logging.info("uptime counter thread started ...")
         while not self.stop_event.is_set():
-            with self.influx.stats.lock:
-                self.influx.stats.total_uptime += 1
-                self.influx.stats.uptime += 1
+            if INFLUX_ENABLED:
+                with self.influx.stats.lock:
+                    self.influx.stats.total_uptime += 1
+                    self.influx.stats.uptime += 1
             time.sleep(1)
 
         logging.info("uptime counter thread ended ...")
@@ -349,12 +350,14 @@ class BM1366Miner:
 
 
     def accepted_callback(self):
-        with self.influx.stats.lock:
-            self.influx.stats.accepted += 1
+        if INFLUX_ENABLED:
+            with self.influx.stats.lock:
+                self.influx.stats.accepted += 1
 
     def not_accepted_callback(self):
-        with self.influx.stats.lock:
-            self.influx.stats.not_accepted += 1
+        if INFLUX_ENABLED:
+            with self.influx.stats.lock:
+                self.influx.stats.not_accepted += 1
 
     def _receive_thread(self):
         logging.info('receiving thread started ...')
@@ -459,7 +462,8 @@ class BM1366Miner:
                 if not self.submit_cb:
                     logging.error("no submit callback set")
                 elif not self.submit_cb(result):
-                    self.influx.stats.pool_errors += 1
+                    if INFLUX_ENABLED:
+                        self.influx.stats.pool_errors += 1
 
         logging.info('receiving thread ended ...')
 
