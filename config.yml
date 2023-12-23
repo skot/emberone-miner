@@ -1,4 +1,4 @@
-influx_enabled: false
+influx_enabled: true
 debug_bm1366: false
 
 piaxe:
@@ -13,7 +13,7 @@ piaxe:
 
 alerter:
   type: discord-webhook
-  enabled: false
+  enabled: true
   # file: load from file
   url: file://webhook.url
   name: Piaxe1

@@ -452,11 +452,12 @@ class BM1366Miner:
                         logging.debug(f"mask_nonce:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
                         logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
 
+                        network_target, network_zeros = shared.nbits_to_target(job._nbits)
+                        logging.debug("network-target: %s (%d)", network_target, network_zeros)
+                        logging.debug("found hash:     %s (%d)", hash, zeros)
+
                     if INFLUX_ENABLED:
                         with self.influx.stats.lock:
-                            network_target, network_zeros = shared.nbits_to_target(job._nbits)
-                            logging.debug("network-target: %s (%d)", network_target, network_zeros)
-                            logging.debug("found hash:     %s (%d)", hash, zeros)
 
                             if hash < network_target:
                                 logging.info("it seems we found a block!")
