@@ -449,6 +449,9 @@ class BM1366Miner:
                     logging.debug("network-target: %s (%d)", network_target, network_zeros)
                     logging.debug("found hash:     %s (%d)", hash, zeros)
 
+                    if hash < network_target:
+                        logging.info("!!! it seems we found a block !!!")
+
                     if is_valid:
                         mask_nonce |= asic_result.nonce
                         mask_version |= asic_result.version << 13
@@ -459,7 +462,6 @@ class BM1366Miner:
                     if INFLUX_ENABLED:
                         with self.influx.stats.lock:
                             if hash < network_target:
-                                logging.info("it seems we found a block!")
                                 self.influx.stats.blocks_found += 1
                                 self.influx.stats.total_blocks_found += 1
 
