@@ -125,7 +125,7 @@ class RPiHardware(Board):
     def shutdown(self):
         # disable buck converter
         logging.info("shutdown miner ...")
-        GPIO.output(RPiHardware.sdn_pin, False)
+        GPIO.output(self.sdn_pin, False)
         self.set_led(False)
 
     def serial_port(self):
