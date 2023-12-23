@@ -258,7 +258,13 @@ class SimpleJsonRpcClient(object):
 
   def mining_submit(self, result):
     params = [ self._subscription.worker_name ] + [ result[k] for k in ('job_id', 'extranonce2', 'ntime', 'nonce', 'version') ]
-    return self.send(method = 'mining.submit', params = params)
+    try:
+      ret = self.send(method = 'mining.submit', params = params)
+      if not ret:
+        raise Exception("mining.submit failed")
+    except Exception as e:
+      logging.error("mining.submit exception: %s", e)
+    return
 
   def connect(self, socket):
     '''Connects to a remote JSON-RPC server'''

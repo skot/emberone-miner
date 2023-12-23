@@ -16,6 +16,7 @@ from shared import shared
 
 from . import bm1366
 from . import influx
+from . import discord
 
 # Load configuration from YAML
 with open('config.yml', 'r') as file:
@@ -23,7 +24,6 @@ with open('config.yml', 'r') as file:
 
 INFLUX_ENABLED = config["influx_enabled"]
 DEBUG_BM1366 = config["debug_bm1366"]
-
 
 class Job(shared.Job):
     def __init__(
@@ -163,6 +163,7 @@ class BM1366Miner:
         self.network = network
 
         self.last_job_time = time.time()
+        self.last_response = time.time()
 
         self.shares = list()
 
@@ -229,6 +230,9 @@ class BM1366Miner:
         self.led_thread = threading.Thread(target=self._led_thread)
         self.led_thread.start()
 
+        self.alerter_thread = threading.Thread(target=self._alerter_thread)
+        self.alerter_thread.start()
+
     def _uptime_counter_thread(self):
         logging.info("uptime counter thread started ...")
         while not self.stop_event.is_set():
@@ -239,6 +243,27 @@ class BM1366Miner:
             time.sleep(1)
 
         logging.info("uptime counter thread ended ...")
+
+    def _alerter_thread(self):
+        alerter_config = config.get("alerter", None)
+        if alerter_config is None or not alerter_config.get("enabled", False):
+            return
+
+        if alerter_config["type"] == "discord-webhook":
+            alerter = discord.DiscordWebhookAlerter(alerter_config)
+        else:
+            raise Exception(f"unknown alerter: {alerter_config['type']}")
+
+        logging.info("Alerter thread started ...")
+        alerter.alert("NO_JOB", "starting miner")
+        alerter.alert("NO_RESPONSE", "starting miner")
+        while not self.stop_event.is_set():
+            alerter.alert_if("NO_JOB", "no new job for more than 5 minutes!", (time.time() - self.last_job_time) > 5*60)
+            alerter.alert_if("NO_RESPONSE", "no ASIC response for more than 5 minutes!", (time.time() - self.last_response) > 5*60)
+            time.sleep(30)
+
+        logging.info("Alerter thread ended ...")
+
 
     def _led_thread(self):
         logging.info("LED thread started ...")
@@ -361,7 +386,6 @@ class BM1366Miner:
 
     def _receive_thread(self):
         logging.info('receiving thread started ...')
-        #last_response = time.time()
         mask_nonce = 0x00000000
         mask_version = 0x00000000
 

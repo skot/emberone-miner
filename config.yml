@@ -10,3 +10,11 @@ piaxe:
   pwm_duty_cycle: 80
   lm75_address: 0x48
   serial_port: "/dev/ttyS0"
+
+alerter:
+  type: discord-webhook
+  enabled: false
+  # file: load from file
+  url: file://webhook.url
+  name: Piaxe1
+  retrigger_time: 3600
