@@ -446,15 +446,15 @@ class BM1366Miner:
                     is_valid, hash, zeros = shared.verify_work(difficulty, job, result)
                     network_target, network_zeros = shared.nbits_to_target(job._nbits)
 
+                    logging.debug("network-target: %s (%d)", network_target, network_zeros)
+                    logging.debug("found hash:     %s (%d)", hash, zeros)
+
                     if is_valid:
                         mask_nonce |= asic_result.nonce
                         mask_version |= asic_result.version << 13
 
                         logging.debug(f"mask_nonce:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
                         logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
-
-                        logging.debug("network-target: %s (%d)", network_target, network_zeros)
-                        logging.debug("found hash:     %s (%d)", hash, zeros)
 
                     if INFLUX_ENABLED:
                         with self.influx.stats.lock:
