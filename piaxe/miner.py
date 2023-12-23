@@ -354,6 +354,9 @@ class BM1366Miner:
     def _receive_thread(self):
         logging.info('receiving thread started ...')
         #last_response = time.time()
+        mask_nonce = 0x00000000
+        mask_version = 0x00000000
+
         while not self.stop_event.is_set():
             byte = self._serial_rx_func(11, 100, debug=False)
 
@@ -406,6 +409,11 @@ class BM1366Miner:
                         nonce = shared.int_to_hex32(asic_result.nonce),
                         version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
                     )
+                    mask_nonce |= asic_result.nonce
+                    mask_version |= asic_result.version << 13
+
+                    logging.debug(f"mask_nocne:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
+                    logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
 
                     is_valid, hash, zeros = shared.verify_work(difficulty, job, result)
 
@@ -422,7 +430,9 @@ class BM1366Miner:
 
                             self.influx.stats.invalid_shares += 1 if not is_valid else 0
                             self.influx.stats.valid_shares += 1 if is_valid else 0
-                            self.shares.append((1, self.influx.stats.difficulty, time.time()))
+                            # don't add to shares if it's invalid to not mess up hashrate stats
+                            if is_valid:
+                                self.shares.append((1, self.influx.stats.difficulty, time.time()))
                             self.influx.stats.hashing_speed = self.hash_rate()
                             hash_difficulty = shared.calculate_difficulty_from_hash(hash)
                             self.influx.stats.best_difficulty = max(self.influx.stats.best_difficulty, hash_difficulty)

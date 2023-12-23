@@ -214,6 +214,16 @@ def bytes_to_hex(i):
 def hex_to_bytes(i):
     return binascii.unhexlify(i)
 
+def int_to_bin32(v, sep=0):
+    bin = ""
+    for bit in range(31, -1, -1):
+        bin += "1" if v & (1<<bit) else "0"
+        if sep and bit % sep == 0:
+            bin += " "
+
+    return bin
+
+
 def calculate_target(difficulty):
     if difficulty < 0:
         raise Exception('Difficulty must be non-negative')
