@@ -178,7 +178,7 @@ class BM1366Miner:
         self.stop_event.set()
 
         # join all threads
-        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.led_thread, self.uptime_counter_thread]:
+        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread]:
             t.join(5)
 
         self.hardware.shutdown()
@@ -256,13 +256,13 @@ class BM1366Miner:
             raise Exception(f"unknown alerter: {alerter_config['type']}")
 
         logging.info("Alerter thread started ...")
-        alerter.alert("NO_JOB", "starting miner")
-        alerter.alert("NO_RESPONSE", "starting miner")
+        alerter.alert("MINER", "started")
         while not self.stop_event.is_set():
             alerter.alert_if("NO_JOB", "no new job for more than 5 minutes!", (time.time() - self.last_job_time) > 5*60)
             alerter.alert_if("NO_RESPONSE", "no ASIC response for more than 5 minutes!", (time.time() - self.last_response) > 5*60)
-            time.sleep(30)
+            time.sleep(1)
 
+        alerter.alert("MINER", "shutdown")
         logging.info("Alerter thread ended ...")
 
 
