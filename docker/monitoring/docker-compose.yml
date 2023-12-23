@@ -24,6 +24,7 @@ services:
       - influxdb
     volumes:
       - ./data/grafana:/var/lib/grafana
+      - ./assets/:/etc/grafana/provisioning/
     ports:
       - "3000:3000"
     environment:
