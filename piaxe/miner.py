@@ -7,6 +7,7 @@ import copy
 import smbus
 import os
 import math
+import yaml
 
 from rpi_hardware_pwm import HardwarePWM
 
@@ -16,10 +17,13 @@ from shared import shared
 from . import bm1366
 from . import influx
 
+# Load configuration from YAML
+with open('config.yml', 'r') as file:
+    config = yaml.safe_load(file)
 
-LM75_ADDRESS = 0x48
-INFLUX_ENABLED = True
-DEBUG_BM1366 = False
+INFLUX_ENABLED = config["influx_enabled"]
+DEBUG_BM1366 = config["debug_bm1366"]
+
 
 class Job(shared.Job):
     def __init__(
@@ -60,28 +64,29 @@ class Board:
 
 
 class RPiHardware(Board):
-    SDN_PIN = 11  # SDN, output, initial high
-    PGOOD_PIN = 13  # PGOOD, input, floating
-    NRST_PIN = 15  # NRST, output, initial high
-    PWM_PIN = 12  # PWM output on Pin 12
-    LED_PIN = 19  # LED 😍
-
     def __init__(self):
         # Setup GPIO
         GPIO.setmode(GPIO.BOARD)  # Use Physical pin numbering
 
+        # Load settings from config
+        self.config = config['piaxe']
+        self.sdn_pin = self.config['sdn_pin']
+        self.pgood_pin = self.config['pgood_pin']
+        self.nrst_pin = self.config['nrst_pin']
+        self.led_pin = self.config['led_pin']
+        self.lm75_address = self.config['lm75_address']
+
         # Initialize GPIO Pins
-        GPIO.setup(RPiHardware.SDN_PIN, GPIO.OUT, initial=GPIO.LOW)
-        # Default is floating
-        GPIO.setup(RPiHardware.PGOOD_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(RPiHardware.NRST_PIN, GPIO.OUT, initial=GPIO.HIGH)
-        GPIO.setup(RPiHardware.LED_PIN, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.sdn_pin, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.pgood_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(self.nrst_pin, GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.setup(self.led_pin, GPIO.OUT, initial=GPIO.LOW)
 
         # Create an SMBus instance
         self._bus = smbus.SMBus(1)  # 1 indicates /dev/i2c-1
 
-        pwm = HardwarePWM(pwm_channel=0, hz=1000)
-        pwm.start(80)  # full duty cycle
+        pwm = HardwarePWM(pwm_channel=0, hz=self.config['pwm_hz'])
+        pwm.start(self.config['pwm_duty_cycle'])
 
         # Initialize serial communication
         self._serial_port = serial.Serial(
@@ -93,34 +98,34 @@ class RPiHardware(Board):
             timeout=1                      # Set a read timeout
         )
 
-        GPIO.output(RPiHardware.SDN_PIN, True)
+        GPIO.output(self.sdn_pin, True)
 
         while (not self._is_power_good()):
             print("power not good ... waiting ...")
             time.sleep(5)
 
     def _is_power_good(self):
-        return GPIO.input(RPiHardware.PGOOD_PIN)
+        return GPIO.input(self.pgood_pin)
 
     def set_fan_speed(self, speed):
         pass
 
     def read_temperature(self):
-        data = self._bus.read_i2c_block_data(LM75_ADDRESS, 0, 2)
+        data = self._bus.read_i2c_block_data(self.lm75_address, 0, 2)
 
         # Convert the data to 12-bits
         return (data[0] << 4) | (data[1] >> 4)
 
     def set_led(self, state):
-        GPIO.output(RPiHardware.LED_PIN, True if state else False)
+        GPIO.output(self.led_pin, True if state else False)
 
     def reset_func(self, state):
-        GPIO.output(RPiHardware.NRST_PIN, True if state else False)
+        GPIO.output(self.nrst_pin, True if state else False)
 
     def shutdown(self):
         # disable buck converter
         logging.info("shutdown miner ...")
-        GPIO.output(RPiHardware.SDN_PIN, False)
+        GPIO.output(RPiHardware.sdn_pin, False)
         self.set_led(False)
 
     def serial_port(self):

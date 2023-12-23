@@ -1,0 +1,11 @@
+influx_enabled: true
+debug_bm1366: false
+
+piaxe:
+  sdn_pin: 11
+  pgood_pin: 13
+  nrst_pin: 15
+  led_pin: 19
+  pwm_hz: 1000
+  pwm_duty_cycle: 80
+  lm75_address: 0x48
