@@ -25,6 +25,7 @@ with open('config.yml', 'r') as file:
 INFLUX_ENABLED = config["influx_enabled"]
 DEBUG_BM1366 = config["debug_bm1366"]
 
+
 class Job(shared.Job):
     def __init__(
         self,
@@ -441,13 +442,15 @@ class BM1366Miner:
                         nonce = shared.int_to_hex32(asic_result.nonce),
                         version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
                     )
-                    mask_nonce |= asic_result.nonce
-                    mask_version |= asic_result.version << 13
-
-                    logging.debug(f"mask_nocne:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
-                    logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
 
                     is_valid, hash, zeros = shared.verify_work(difficulty, job, result)
+
+                    if is_valid:
+                        mask_nonce |= asic_result.nonce
+                        mask_version |= asic_result.version << 13
+
+                        logging.debug(f"mask_nonce:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
+                        logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
 
                     if INFLUX_ENABLED:
                         with self.influx.stats.lock:
