@@ -533,7 +533,7 @@ if __name__ == '__main__':
   if network == shared.BitcoinNetwork.UNKNOWN:
     logging.error("unknown address type: %s", address)
 
-  piaxeMiner = miner.BM1366Miner(network)
+  piaxeMiner = miner.BM1366Miner(address, network)
   piaxeMiner.init()
 
   # Heigh-ho, heigh-ho, it's off to work we go...

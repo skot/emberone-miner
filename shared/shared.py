@@ -5,7 +5,7 @@ import random
 import binascii
 import json
 from enum import Enum
-
+import bech32
 
 
 def swap_endian_word(hex_word):
@@ -124,6 +124,9 @@ class Job:
         coinbase_bin = binascii.unhexlify(self._coinb1) + binascii.unhexlify(self._extranonce1) + binascii.unhexlify(self._extranonce2) + binascii.unhexlify(self._coinb2)
         coinbase_hash_bin = sha256d(coinbase_bin)
 
+        # save coinbase_hex for verification
+        self.coinbase_hex = binascii.hexlify(coinbase_bin).decode('utf-8')
+
         self._merkle_root_bin = coinbase_hash_bin
         for branch in self._merkle_branches:
             self._merkle_root_bin = sha256d(self._merkle_root_bin + binascii.unhexlify(branch))
@@ -175,6 +178,97 @@ class Job:
         # Deserialize from JSON
         data = json.loads(json_str)
         return cls.from_dict(data)
+
+    def deserialize_coinbase(self):
+        hex_string = self.coinbase_hex
+        # Helper function to read variable integer (CompactSize)
+        def read_varint(hex_data):
+            size = int(hex_data[:2], 16)
+            if size < 0xfd:
+                return size, hex_data[2:]
+            if size == 0xfd:
+                return int(hex_data[2:6], 16), hex_data[6:]
+            if size == 0xfe:
+                return int(hex_data[2:10], 16), hex_data[10:]
+            if size == 0xff:
+                return int(hex_data[2:18], 16), hex_data[18:]
+
+        # Helper function to convert little endian hex to int
+        def le_hex_to_int(hex_data):
+            return int.from_bytes(bytes.fromhex(hex_data), 'little')
+
+        # Cursor to keep track of position
+        cursor = 0
+
+        # Deserialize the transaction
+        tx = {}
+
+        # Version
+        tx['version'] = le_hex_to_int(hex_string[cursor:cursor + 8])
+        cursor += 8
+
+        # Input Count
+        input_count, hex_string = read_varint(hex_string[cursor:])
+        cursor = 0  # reset cursor as hex_string is now shorter
+        tx['input_count'] = input_count
+
+        # Inputs
+        tx['inputs'] = []
+        for _ in range(input_count):
+            input = {}
+
+            # Previous Output Hash
+            input['previous_output_hash'] = hex_string[cursor:cursor + 64]
+            cursor += 64
+
+            # Previous Output Index
+            input['previous_output_index'] = hex_string[cursor:cursor + 8]
+            cursor += 8
+
+            # Coinbase Data Size
+            coinbase_size, hex_string = read_varint(hex_string[cursor:])
+            cursor = 0  # reset cursor as hex_string is now shorter
+            input['coinbase_size'] = coinbase_size
+
+            # Coinbase Data
+            input['coinbase_data'] = hex_string[cursor:cursor + coinbase_size * 2]
+            cursor += coinbase_size * 2
+
+            # Sequence
+            input['sequence'] = hex_string[cursor:cursor + 8]
+            cursor += 8
+
+            tx['inputs'].append(input)
+
+        # Output Count
+        output_count, hex_string = read_varint(hex_string[cursor:])
+        cursor = 0  # reset cursor as hex_string is now shorter
+        tx['output_count'] = output_count
+
+        # Outputs
+        tx['outputs'] = []
+        for _ in range(output_count):
+            output = {}
+
+            # Value
+            output['value'] = le_hex_to_int(hex_string[cursor:cursor + 16])
+            cursor += 16
+
+            # Script Length
+            script_length, hex_string = read_varint(hex_string[cursor:])
+            cursor = 0  # reset cursor as hex_string is now shorter
+            output['script_length'] = script_length
+
+            # Script
+            output['script'] = hex_string[cursor:cursor + script_length * 2]
+            cursor += script_length * 2
+
+            tx['outputs'].append(output)
+
+        # Locktime
+        tx['locktime'] = le_hex_to_int(hex_string[cursor:cursor + 8])
+
+        return tx
 
 
 class BitcoinNetwork(Enum):
@@ -291,6 +385,50 @@ def verify_work(difficulty, job, result):
     leading_zeros = count_leading_zeros(hash_str)
 
     return hash_str < target, hash_str, leading_zeros
+
+
+def decode_bech32(address):
+    hrp = address.split('1')[0]
+
+    # Decoding the Bech32 address to get the witness version and witness program
+    hrp, decoded_data = bech32.decode(hrp, address)
+    if decoded_data is None:
+        raise ValueError("Invalid Bech32 address")
+
+    return bytes(decoded_data)
+
+def get_scriptpubkey_from_bech32(address):
+    # Decoding the Bech32 address
+    decoded_data = decode_bech32(address)
+    # The first byte is the witness version
+    witness_version = decoded_data[0]
+    # The rest is the witness program (hash)
+    witness_program = decoded_data[1:]
+    # Constructing the scriptPubKey
+    return witness_version, witness_program
+
+def verify_solo(btc_address, coinb):
+    if coinb['output_count'] < 1:
+        raise Exception("no outputs found")
+
+    witness_version, witness_program = get_scriptpubkey_from_bech32(btc_address)
+    scriptpubkey = binascii.hexlify(witness_program).decode('utf-8')
+
+    value_total = 0
+    value_our = 0
+    for i, output in enumerate(coinb['outputs']):
+        if i == 0:
+            print(output['script'])
+            if scriptpubkey not in output['script']:
+                raise Exception("script pubkey of our address not found")
+            value_our += output['value']
+
+        value_total += output['value']
+
+    if value_our != value_total:
+        raise Exception("not getting all rewards! %d vs %d", value_our, value_total)
+
+    return True, value_our, value_total
 
 
 

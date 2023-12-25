@@ -8,6 +8,7 @@ import smbus
 import os
 import math
 import yaml
+import json
 
 from rpi_hardware_pwm import HardwarePWM
 
@@ -134,7 +135,7 @@ class RPiHardware(Board):
 
 
 class BM1366Miner:
-    def __init__(self, network):
+    def __init__(self, address, network):
         self.current_job = None
         self.current_work = None
         self.serial_port = None
@@ -162,6 +163,7 @@ class BM1366Miner:
         self.led_thread = None
         self.led_event = threading.Event()
         self.network = network
+        self.address = address
 
         self.last_job_time = time.time()
         self.last_response = time.time()
@@ -558,5 +560,16 @@ class BM1366Miner:
         self.last_job_time = time.time()
         with self.job_lock:
             self.current_job = job
+
+            if config.get('verify_solo', False):
+                coinb = job.deserialize_coinbase()
+                is_solo, value_our, value_total = shared.verify_solo(self.address, coinb)
+                logging.debug("solo mining verification passed! reward: %d", value_our)
+            else:
+                logging.debug("solo mining not verified!")
+
+            #logging.debug(json.dumps(job.deserialize_coinbase(), indent=4))
+
+
             self.new_job_event.set()
 

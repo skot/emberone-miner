@@ -1,5 +1,6 @@
 influx_enabled: true
 debug_bm1366: false
+verify_solo: true
 
 piaxe:
   sdn_pin: 11
@@ -13,7 +14,7 @@ piaxe:
 
 alerter:
   type: discord-webhook
-  enabled: true
+  enabled: false
   # file: load from file
   url: file://webhook.url
   name: Piaxe1
