@@ -193,6 +193,26 @@ class Job:
             if size == 0xff:
                 return int(hex_data[2:18], 16), hex_data[18:]
 
+        def decode_script_number(buffer, max_length=4, minimal=True):
+            length = len(buffer)
+            if length == 0:
+                return 0
+            if length > max_length:
+                raise TypeError('Script number overflow')
+            if minimal:
+                if (buffer[-1] & 0x7f) == 0:
+                    if length <= 1 or (buffer[-2] & 0x80) == 0:
+                        raise ValueError('Non-minimally encoded script number')
+
+            # 32-bit / 24-bit / 16-bit / 8-bit
+            result = 0
+            for i in range(length):
+                result |= buffer[i] << (8 * i)
+
+            if buffer[-1] & 0x80:
+                return -(result & ~(0x80 << (8 * (length - 1))))
+            return result
+
         # Helper function to convert little endian hex to int
         def le_hex_to_int(hex_data):
             return int.from_bytes(bytes.fromhex(hex_data), 'little')
@@ -233,6 +253,14 @@ class Job:
             # Coinbase Data
             input['coinbase_data'] = hex_string[cursor:cursor + coinbase_size * 2]
             cursor += coinbase_size * 2
+
+            # extract blocknumber
+            if tx['version'] == 2:
+                coinbase_data_bytes = binascii.unhexlify(input['coinbase_data'])
+                height_num_bytes = coinbase_data_bytes[0]
+                tx['height'] = decode_script_number(coinbase_data_bytes[1:1+height_num_bytes])
+            else:
+                tx['height'] = None
 
             # Sequence
             input['sequence'] = hex_string[cursor:cursor + 8]
@@ -418,7 +446,7 @@ def verify_solo(btc_address, coinb):
     value_our = 0
     for i, output in enumerate(coinb['outputs']):
         if i == 0:
-            print(output['script'])
+            #print(output['script'])
             if scriptpubkey not in output['script']:
                 raise Exception("script pubkey of our address not found")
             value_our += output['value']
