@@ -37,20 +37,25 @@ class Stats:
         logging.info("loaded total blocks found: %d", self.total_blocks_found)
 
 class Influx:
-    def __init__(self, stats_name):
+    def __init__(self, config, stats, stats_name):
         # InfluxDB settings (replace with your own settings)
-        self.host = 'localhost'
-        self.port = 8086
-        self.token = 'f37fh783hf8hq'
-        self.org = 'piaxe'
-        self.bucket = 'piaxe'
+        self.host = config['host']
+        self.port = config['port']
+        self.token = config['token']
+        self.org = config['org']
+        self.bucket = config['bucket']
         self.stats_name = stats_name
         self.client = None
-        self.tz = pytz.timezone('Europe/Berlin')
-        self.stats = Stats()
+        self.tz = pytz.timezone(config['timezone'])
+        self.stats = stats
+
+    def start(self):
+        self.connect()
 
         self.submit_thread = threading.Thread(target=self._submit_thread)
         self.submit_thread.start()
+
+
 
 
     def _submit_thread(self):

@@ -19,14 +19,6 @@ from . import bm1366
 from . import influx
 from . import discord
 
-# Load configuration from YAML
-with open('config.yml', 'r') as file:
-    config = yaml.safe_load(file)
-
-INFLUX_ENABLED = config["influx_enabled"]
-DEBUG_BM1366 = config["debug_bm1366"]
-
-
 class Job(shared.Job):
     def __init__(
         self,
@@ -66,12 +58,12 @@ class Board:
 
 
 class RPiHardware(Board):
-    def __init__(self):
+    def __init__(self, config):
         # Setup GPIO
         GPIO.setmode(GPIO.BOARD)  # Use Physical pin numbering
 
         # Load settings from config
-        self.config = config['piaxe']
+        self.config = config
         self.sdn_pin = self.config['sdn_pin']
         self.pgood_pin = self.config['pgood_pin']
         self.nrst_pin = self.config['nrst_pin']
@@ -135,7 +127,9 @@ class RPiHardware(Board):
 
 
 class BM1366Miner:
-    def __init__(self, address, network):
+    def __init__(self, config, address, network):
+        self.config = config
+
         self.current_job = None
         self.current_work = None
         self.serial_port = None
@@ -169,11 +163,11 @@ class BM1366Miner:
         self.last_response = time.time()
 
         self.shares = list()
+        self.stats = influx.Stats()
 
-        if INFLUX_ENABLED:
-            stats_name = "mainnet_stats" if network == shared.BitcoinNetwork.MAINNET else \
-                "testnet_stats" if network == shared.BitcoinNetwork.TESTNET else "regtest_stats"
-            self.influx = influx.Influx(stats_name)
+        self.miner = self.config['miner']
+        self.verify_solo = self.config.get('verify_solo', False)
+        self.debug_bm1366 = self.config.get("debug_bm1366", False)
 
     def shutdown(self):
         # signal the threads to end
@@ -181,7 +175,8 @@ class BM1366Miner:
 
         # join all threads
         for t in [self.job_thread, self.receive_thread, self.temp_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread]:
-            t.join(5)
+            if t is not None:
+                t.join(5)
 
         self.hardware.shutdown()
 
@@ -192,7 +187,11 @@ class BM1366Miner:
         return f"{self.get_name()}/0.1"
 
     def init(self):
-        self.hardware = RPiHardware()
+        if self.miner == 'piaxe':
+            self.hardware = RPiHardware(self.config['piaxe'])
+        else:
+            raise Exception('unknown miner: %s', self.miner)
+
         self.serial_port = self.hardware.serial_port()
 
         # set the hardware dependent functions for serial and reset
@@ -207,14 +206,7 @@ class BM1366Miner:
         if init_response.nonce != 0x00006613:
             raise Exception("bm1366 not detected")
 
-        if INFLUX_ENABLED:
-            self.influx.connect()
-            try:
-                self.influx.load_last_values()
-            except Exception as e:
-                logging.error("we really don't want to start without previous values: %s", e)
-                self.hardware.shutdown()
-                os._exit(0)
+
 
         self.set_difficulty(512)
 
@@ -233,38 +225,52 @@ class BM1366Miner:
         self.led_thread = threading.Thread(target=self._led_thread)
         self.led_thread.start()
 
-        self.alerter_thread = threading.Thread(target=self._alerter_thread)
-        self.alerter_thread.start()
+        influx_config = self.config.get('influx', None)
+        self.influx = None
+        if influx_config is not None and influx_config.get('enabled', False):
+            stats_name = "mainnet_stats" if self.network == shared.BitcoinNetwork.MAINNET else \
+                "testnet_stats" if self.network == shared.BitcoinNetwork.TESTNET else "regtest_stats"
+
+            self.influx = influx.Influx(influx_config, self.stats, stats_name)
+            self.influx.start()
+
+            try:
+                self.influx.load_last_values()
+            except Exception as e:
+                logging.error("we really don't want to start without previous influx values: %s", e)
+                self.hardware.shutdown()
+                os._exit(0)
+
+        alerter_config = self.config.get("alerter", None)
+        self.alerter_thread = None
+        if alerter_config is not None and alerter_config.get("enabled", False):
+            if alerter_config["type"] == "discord-webhook":
+                self.alerter = discord.DiscordWebhookAlerter(alerter_config)
+                self.alerter_thread = threading.Thread(target=self._alerter_thread)
+                self.alerter_thread.start()
+            else:
+                raise Exception(f"unknown alerter: {alerter_config['type']}")
+
 
     def _uptime_counter_thread(self):
         logging.info("uptime counter thread started ...")
         while not self.stop_event.is_set():
-            if INFLUX_ENABLED:
-                with self.influx.stats.lock:
-                    self.influx.stats.total_uptime += 1
-                    self.influx.stats.uptime += 1
+            with self.stats.lock:
+                self.stats.total_uptime += 1
+                self.stats.uptime += 1
             time.sleep(1)
 
         logging.info("uptime counter thread ended ...")
 
     def _alerter_thread(self):
-        alerter_config = config.get("alerter", None)
-        if alerter_config is None or not alerter_config.get("enabled", False):
-            return
-
-        if alerter_config["type"] == "discord-webhook":
-            alerter = discord.DiscordWebhookAlerter(alerter_config)
-        else:
-            raise Exception(f"unknown alerter: {alerter_config['type']}")
-
         logging.info("Alerter thread started ...")
-        alerter.alert("MINER", "started")
+        self.alerter.alert("MINER", "started")
         while not self.stop_event.is_set():
-            alerter.alert_if("NO_JOB", "no new job for more than 5 minutes!", (time.time() - self.last_job_time) > 5*60)
-            alerter.alert_if("NO_RESPONSE", "no ASIC response for more than 5 minutes!", (time.time() - self.last_response) > 5*60)
+            self.alerter.alert_if("NO_JOB", "no new job for more than 5 minutes!", (time.time() - self.last_job_time) > 5*60)
+            self.alerter.alert_if("NO_RESPONSE", "no ASIC response for more than 5 minutes!", (time.time() - self.last_response) > 5*60)
             time.sleep(1)
 
-        alerter.alert("MINER", "shutdown")
+        self.alerter.alert("MINER", "shutdown")
         logging.info("Alerter thread ended ...")
 
 
@@ -306,9 +312,8 @@ class BM1366Miner:
             celsius = temp * 0.0625
             logging.info("temperature: %.3f", celsius)
 
-            if INFLUX_ENABLED:
-                with self.influx.stats.lock:
-                    self.influx.stats.temp = celsius
+            with self.stats.lock:
+                self.stats.temp = celsius
 
             if celsius > 70.0:
                 logging.error("too hot, shutting down ...")
@@ -325,7 +330,7 @@ class BM1366Miner:
                 if sent == 0:
                     raise RuntimeError("Serial connection broken")
                 total_sent += sent
-            if DEBUG_BM1366:
+            if self.debug_bm1366:
                 logging.debug("-> %s", bytearray(data).hex())
 
     def _serial_rx_func(self, size, timeout_ms, debug=False):
@@ -361,31 +366,26 @@ class BM1366Miner:
         self._target = '%064x' % target
 
     def set_difficulty(self, difficulty):
-        # restrict to min 512
-        difficulty = max(difficulty, 512)
+        # restrict to min 256
+        difficulty = max(difficulty, 256)
 
         self._difficulty = difficulty
         self._set_target(shared.calculate_target(difficulty))
         bm1366.set_job_difficulty_mask(difficulty)
 
-        if INFLUX_ENABLED:
-            with self.influx.stats.lock:
-                self.influx.stats.difficulty = difficulty
+        with self.stats.lock:
+            self.stats.difficulty = difficulty
 
     def set_submit_callback(self, cb):
         self.submit_cb = cb
 
-
-
     def accepted_callback(self):
-        if INFLUX_ENABLED:
-            with self.influx.stats.lock:
-                self.influx.stats.accepted += 1
+        with self.stats.lock:
+            self.stats.accepted += 1
 
     def not_accepted_callback(self):
-        if INFLUX_ENABLED:
-            with self.influx.stats.lock:
-                self.influx.stats.not_accepted += 1
+        with self.stats.lock:
+            self.stats.not_accepted += 1
 
     def _receive_thread(self):
         logging.info('receiving thread started ...')
@@ -408,7 +408,7 @@ class BM1366Miner:
                     data[i] = self._buffer[self._read_index % 64]
                     self._read_index += 1
 
-                if DEBUG_BM1366:
+                if self.debug_bm1366:
                     logging.debug("<- %s", bytes(data).hex())
 
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
@@ -461,21 +461,20 @@ class BM1366Miner:
                         logging.debug(f"mask_nonce:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
                         logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
 
-                    if INFLUX_ENABLED:
-                        with self.influx.stats.lock:
-                            if hash < network_target:
-                                self.influx.stats.blocks_found += 1
-                                self.influx.stats.total_blocks_found += 1
+                    with self.stats.lock:
+                        if hash < network_target:
+                            self.stats.blocks_found += 1
+                            self.stats.total_blocks_found += 1
 
-                            self.influx.stats.invalid_shares += 1 if not is_valid else 0
-                            self.influx.stats.valid_shares += 1 if is_valid else 0
-                            # don't add to shares if it's invalid to not mess up hashrate stats
-                            if is_valid:
-                                self.shares.append((1, self.influx.stats.difficulty, time.time()))
-                            self.influx.stats.hashing_speed = self.hash_rate()
-                            hash_difficulty = shared.calculate_difficulty_from_hash(hash)
-                            self.influx.stats.best_difficulty = max(self.influx.stats.best_difficulty, hash_difficulty)
-                            self.influx.stats.total_best_difficulty = max(self.influx.stats.total_best_difficulty, hash_difficulty)
+                        self.stats.invalid_shares += 1 if not is_valid else 0
+                        self.stats.valid_shares += 1 if is_valid else 0
+                        # don't add to shares if it's invalid to not mess up hashrate stats
+                        if is_valid:
+                            self.shares.append((1, self.stats.difficulty, time.time()))
+                        self.stats.hashing_speed = self.hash_rate()
+                        hash_difficulty = shared.calculate_difficulty_from_hash(hash)
+                        self.stats.best_difficulty = max(self.stats.best_difficulty, hash_difficulty)
+                        self.stats.total_best_difficulty = max(self.stats.total_best_difficulty, hash_difficulty)
 
                     # restart miner with new extranonce2
                     self.new_job_event.set()
@@ -493,8 +492,7 @@ class BM1366Miner:
                 if not self.submit_cb:
                     logging.error("no submit callback set")
                 elif not self.submit_cb(result):
-                    if INFLUX_ENABLED:
-                        self.influx.stats.pool_errors += 1
+                    self.stats.pool_errors += 1
 
         logging.info('receiving thread ended ...')
 
@@ -565,7 +563,7 @@ class BM1366Miner:
             if coinb['height'] is not None:
                 logging.debug("mining for block %d", coinb['height'])
 
-            if config.get('verify_solo', False):
+            if self.verify_solo:
                 is_solo, value_our, value_total = shared.verify_solo(self.address, coinb)
                 logging.debug("solo mining verification passed! reward: %d", value_our)
             else:

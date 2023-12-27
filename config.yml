@@ -1,6 +1,6 @@
-influx_enabled: true
 debug_bm1366: false
 verify_solo: true
+miner: piaxe
 
 piaxe:
   sdn_pin: 11
@@ -13,9 +13,18 @@ piaxe:
   serial_port: "/dev/ttyS0"
 
 alerter:
-  type: discord-webhook
   enabled: false
+  type: discord-webhook
   # file: load from file
   url: file://webhook.url
   name: Piaxe1
   retrigger_time: 3600
+
+influx:
+  enabled: true
+  host: localhost
+  port: 8086
+  token: f37fh783hf8hq
+  org: piaxe
+  bucket: piaxe
+  timezone: Europe/Berlin

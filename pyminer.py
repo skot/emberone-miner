@@ -31,6 +31,7 @@ import piaxe
 import signal
 import os
 import datetime
+import yaml
 
 # Subscription state
 class Subscription(object):
@@ -533,7 +534,11 @@ if __name__ == '__main__':
   if network == shared.BitcoinNetwork.UNKNOWN:
     logging.error("unknown address type: %s", address)
 
-  piaxeMiner = miner.BM1366Miner(address, network)
+  # Load configuration from YAML
+  with open('config.yml', 'r') as file:
+      config = yaml.safe_load(file)
+
+  piaxeMiner = miner.BM1366Miner(config, address, network)
   piaxeMiner.init()
 
   # Heigh-ho, heigh-ho, it's off to work we go...
