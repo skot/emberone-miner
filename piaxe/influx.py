@@ -48,10 +48,9 @@ class Influx:
         self.client = None
         self.tz = pytz.timezone(config['timezone'])
         self.stats = stats
-
-    def start(self):
         self.connect()
 
+    def start(self):
         self.submit_thread = threading.Thread(target=self._submit_thread)
         self.submit_thread.start()
 

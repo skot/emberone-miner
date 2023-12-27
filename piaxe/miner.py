@@ -232,14 +232,15 @@ class BM1366Miner:
                 "testnet_stats" if self.network == shared.BitcoinNetwork.TESTNET else "regtest_stats"
 
             self.influx = influx.Influx(influx_config, self.stats, stats_name)
-            self.influx.start()
-
             try:
                 self.influx.load_last_values()
             except Exception as e:
                 logging.error("we really don't want to start without previous influx values: %s", e)
                 self.hardware.shutdown()
                 os._exit(0)
+
+            # start writing thread after values were loaded
+            self.influx.start()
 
         alerter_config = self.config.get("alerter", None)
         self.alerter_thread = None
