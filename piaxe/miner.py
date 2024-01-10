@@ -75,6 +75,9 @@ class Board:
     def get_name(self):
         return self.config['name']
 
+    def get_chip_count(self):
+        return self.config['chips']
+
 
 class RPiHardware(Board):
     def __init__(self, config):
@@ -357,7 +360,13 @@ class BM1366Miner:
         bm1366.ll_init(self._serial_tx_func, self._serial_rx_func,
                        self.hardware.reset_func)
 
-        bm1366.init(self.hardware.get_asic_frequency())
+        chip_counter = bm1366.init(self.hardware.get_asic_frequency())
+
+        expected_chips = self.hardware.get_chip_count()
+        if chip_counter != expected_chips:
+            raise Exception(f"too few chips found: {chip_counter} vs {expected_chips}")
+
+        logging.info(f"{chip_counter} chips were found!")
 
         self.set_difficulty(512)
 

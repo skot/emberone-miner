@@ -306,11 +306,6 @@ def send_init(frequency):
             break
         chip_counter += 1
 
-    if chip_counter == 0:
-        raise Exception("no chips were found!")
-
-    logging.info(f"{chip_counter} chips were found!")
-
     send_simple([0x55, 0xAA, 0x51, 0x09, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00, 0x03])
     send_simple([0x55, 0xAA, 0x51, 0x09, 0x00, 0x18, 0xFF, 0x0F, 0xC1, 0x00, 0x00])
     send_simple([0x55, 0xAA, 0x53, 0x05, 0x00, 0x00, 0x03])
@@ -1006,6 +1001,8 @@ def send_init(frequency):
     buffer = bytearray([last_address, 0x14, 0x00, 0x00, 0x00, 0x80])
     send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, buffer)
 
+    return chip_counter
+
 def request_chip_id():
     send_simple([0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A]) # chipid
 
@@ -1022,12 +1019,12 @@ def reset():
 def init(frequency):
     logging.info("Initializing BM1366")
 
-    reset();
+    reset()
 
     # send the init command
     #_send_read_address();
 
-    send_init(frequency);
+    return send_init(frequency)
 
 # Baud formula = 25M/((denominator+1)*8)
 # The denominator is 5 bits found in the misc_control (bits 9-13)
