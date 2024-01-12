@@ -1,16 +1,29 @@
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+    from rpi_hardware_pwm import HardwarePWM
+    import smbus
+except:
+    pass
+
 import serial
 import time
 import logging
 import random
 import copy
-import smbus
 import os
 import math
 import yaml
 import json
 
-from rpi_hardware_pwm import HardwarePWM
+from . import coms_pb2
+import binascii
+
+try:
+    import pyftdi.serialext
+    from pyftdi.gpio import GpioSyncController
+    from pyftdi.i2c import I2cController, I2cIOError
+except:
+    pass
 
 import threading
 from shared import shared
@@ -55,6 +68,15 @@ class Board:
 
     def serial_port(self):
         raise NotImplementedError
+
+    def get_asic_frequency(self):
+        return self.config['asic_frequency']
+
+    def get_name(self):
+        return self.config['name']
+
+    def get_chip_count(self):
+        return self.config['chips']
 
 
 class RPiHardware(Board):
@@ -106,9 +128,15 @@ class RPiHardware(Board):
 
     def read_temperature(self):
         data = self._bus.read_i2c_block_data(self.lm75_address, 0, 2)
-
         # Convert the data to 12-bits
-        return (data[0] << 4) | (data[1] >> 4)
+        temp = (data[0] << 4) | (data[1] >> 4)
+        # Convert to a signed 12-bit value
+        if temp > 2047:
+            temp -= 4096
+
+        # Convert to Celsius
+        celsius = temp * 0.0625
+        return celsius
 
     def set_led(self, state):
         GPIO.output(self.led_pin, True if state else False)
@@ -124,6 +152,136 @@ class RPiHardware(Board):
 
     def serial_port(self):
         return self._serial_port
+
+
+
+class BitcraneHardware(Board):
+    TMP75_ADDRESSES = [ 0x48, 0x4C ]
+    EMC2305_ADDRESS = 0x4D
+    FAN_PWM_REGISTERS = [0x30, 0x40, 0x50, 0x60, 0x70]
+
+    def __init__(self, config):
+        self.config = config
+
+        i2c = I2cController()
+        i2c.configure('ftdi://ftdi:4232/2',
+                      frequency=100000,
+                      clockstretching=False,
+                      debug=True)
+        self.rst_plug_gpio = i2c.get_gpio()
+        self.rst_plug_gpio.set_direction(0x30, 0x30)
+        self.temp_sensors = []
+        for address in BitcraneHardware.TMP75_ADDRESSES:
+            self.temp_sensors.append(i2c.get_port(address))
+
+        self.fan_controller = i2c.get_port(BitcraneHardware.EMC2305_ADDRESS)
+
+        # Initialize serial communication
+        self._serial_port = pyftdi.serialext.serial_for_url('ftdi://ftdi:4232/1',
+                                                            baudrate=115200,
+                                                            timeout=1)
+
+        self.set_fan_speed(config['fan_speed'])
+
+    def set_fan_speed(self, percent):
+        pwm_value = int(255 * percent)
+        for fan_reg in BitcraneHardware.FAN_PWM_REGISTERS:
+            self.fan_controller.write_to(fan_reg, [pwm_value])
+        print(f"Set fan to {percent * 100}% speed.")
+
+    def read_temperature(self):
+        highest_temp = 0
+        for sensor in self.temp_sensors:
+            temp = sensor.read_from(0x00, 2)
+            if highest_temp < temp[0]:
+                highest_temp = temp[0]
+
+        return highest_temp + 5
+
+    def set_led(self, state):
+        pass
+
+    def reset_func(self, state):
+        if state:
+            self.rst_plug_gpio.write(0x00)
+        else:
+            self.rst_plug_gpio.write(0x30)
+
+    def shutdown(self):
+        # disable buck converter
+        logging.info("shutdown miner ...")
+        self.reset_func(True)
+
+    def serial_port(self):
+        return self._serial_port
+
+
+class QaxeHardware(Board):
+    def __init__(self, config):
+        # Load settings from config
+        self.config = config
+
+        # Initialize serial communication
+        self._serial_port_asic = serial.Serial(
+            port=self.config['serial_port_asic'],  # For GPIO serial communication use /dev/ttyS0
+            baudrate=115200,    # Set baud rate to 115200
+            bytesize=serial.EIGHTBITS,     # Number of data bits
+            parity=serial.PARITY_NONE,     # No parity
+            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
+            timeout=1                      # Set a read timeout
+        )
+
+        # Initialize serial communication
+        self._serial_port_ctrl = serial.Serial(
+            port=self.config['serial_port_ctrl'],  # For GPIO serial communication use /dev/ttyS0
+            baudrate=115200,    # Set baud rate to 115200
+            bytesize=serial.EIGHTBITS,     # Number of data bits
+            parity=serial.PARITY_NONE,     # No parity
+            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
+            timeout=1                      # Set a read timeout
+        )
+
+    def _is_power_good(self):
+        return True
+
+    def set_fan_speed(self, speed):
+        pass
+
+    def read_temperature(self):
+        return 0
+
+    def set_led(self, state):
+        pass
+
+    def reset_func(self, state):
+        request = coms_pb2.QRequest()
+        request.id = 123  # Set a unique ID for the request
+        request.op = 3 # reset
+        request.data = b'0x00'
+        request.data = bytes([len(request.data)]) + request.data
+
+        serialized_request = request.SerializeToString()
+        serialized_request = bytes([len(serialized_request)]) + serialized_request
+        logging.debug("-> %s", binascii.hexlify(serialized_request).decode('utf8'))
+        self._serial_port_ctrl.write(serialized_request)
+
+        response_data = self._serial_port_ctrl.read_until()
+        logging.debug("<- %s", binascii.hexlify(response_data).decode('utf8'))
+        response = coms_pb2.QResponse()
+        response.ParseFromString(response_data[1:])
+        if response.error != 0:
+            logging.error("reset failed")
+
+        print(f"id: {response.id}, error: {response.error}")
+        #os._exit(0)
+
+
+
+    def shutdown(self):
+        pass
+
+    def serial_port(self):
+        return self._serial_port_asic
 
 
 class BM1366Miner:
@@ -181,14 +339,18 @@ class BM1366Miner:
         self.hardware.shutdown()
 
     def get_name(self):
-        return "PiAxe"
+        return self.hardware.get_name()
 
     def get_user_agent(self):
         return f"{self.get_name()}/0.1"
 
     def init(self):
+        if self.miner == 'bitcrane':
+            self.hardware = BitcraneHardware(self.config['bitcrane'])
         if self.miner == 'piaxe':
             self.hardware = RPiHardware(self.config['piaxe'])
+        elif self.miner == "qaxe":
+            self.hardware = QaxeHardware(self.config['qaxe'])
         else:
             raise Exception('unknown miner: %s', self.miner)
 
@@ -198,15 +360,13 @@ class BM1366Miner:
         bm1366.ll_init(self._serial_tx_func, self._serial_rx_func,
                        self.hardware.reset_func)
 
-        # init bm1366
-        bm1366.init(485)
-        logging.info("waiting for chipid response ...")
-        init_response = bm1366.receive_work()
+        chip_counter = bm1366.init(self.hardware.get_asic_frequency())
 
-        if init_response.nonce != 0x00006613:
-            raise Exception("bm1366 not detected")
+        expected_chips = self.hardware.get_chip_count()
+        if chip_counter != expected_chips:
+            raise Exception(f"too few chips found: {chip_counter} vs {expected_chips}")
 
-
+        logging.info(f"{chip_counter} chips were found!")
 
         self.set_difficulty(512)
 
@@ -305,25 +465,20 @@ class BM1366Miner:
     def _monitor_temperature(self):
         while not self.stop_event.is_set():
             temp = self.hardware.read_temperature()
-            # Convert to a signed 12-bit value
-            if temp > 2047:
-                temp -= 4096
 
-            # Convert to Celsius
-            celsius = temp * 0.0625
-            logging.info("temperature: %.3f", celsius)
+            logging.info("temperature: %.3f", temp)
 
             with self.stats.lock:
-                self.stats.temp = celsius
+                self.stats.temp = temp
 
-            if celsius > 70.0:
+            if temp > 70.0:
                 logging.error("too hot, shutting down ...")
                 self.hardware.shutdown()
                 os._exit(1)
 
             time.sleep(1.5)
 
-    def _serial_tx_func(self, data, debug=False):
+    def _serial_tx_func(self, data):
         with self.serial_lock:
             total_sent = 0
             while total_sent < len(data):
@@ -334,15 +489,15 @@ class BM1366Miner:
             if self.debug_bm1366:
                 logging.debug("-> %s", bytearray(data).hex())
 
-    def _serial_rx_func(self, size, timeout_ms, debug=False):
+    def _serial_rx_func(self, size, timeout_ms):
         self.serial_port.timeout = timeout_ms / 1000.0
 
         data = self.serial_port.read(size)
         bytes_read = len(data)
 
-        if bytes_read > 0:
-#            logging.debug("serial_rx: %d", bytes_read)
-#            logging.debug("<- %s", data.hex())
+        if self.debug_bm1366 and bytes_read > 0:
+            logging.debug("serial_rx: %d", bytes_read)
+            logging.debug("<- %s", data.hex())
             return data
 
         return None
@@ -394,7 +549,7 @@ class BM1366Miner:
         mask_version = 0x00000000
 
         while not self.stop_event.is_set():
-            byte = self._serial_rx_func(11, 100, debug=False)
+            byte = self._serial_rx_func(11, 100)
 
             if not byte:
                 continue
@@ -538,9 +693,6 @@ class BM1366Miner:
                     'work': copy.deepcopy(self.current_work),
                     'difficulty': self._difficulty
                 }
-
-                # do it every now and then ...
-                bm1366.request_chip_id()
 
                 self.led_event.set()
 
