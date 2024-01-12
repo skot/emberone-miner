@@ -118,7 +118,7 @@ class RPiHardware(Board):
 
         while (not self._is_power_good()):
             print("power not good ... waiting ...")
-            time.sleep(5)
+            time.sleep(1)
 
     def _is_power_good(self):
         return GPIO.input(self.pgood_pin)
@@ -221,6 +221,13 @@ class QaxeHardware(Board):
         # Load settings from config
         self.config = config
 
+        self.state_power = 0;
+        self.pwm1 = self.config.get('fan_speed_1', 100)
+        self.pwm2 = self.config.get('fan_speed_2', 0)
+
+        self.reqid = 0
+        self.serial_port_ctrl_lock = threading.Lock()
+
         # Initialize serial communication
         self._serial_port_asic = serial.Serial(
             port=self.config['serial_port_asic'],  # For GPIO serial communication use /dev/ttyS0
@@ -241,10 +248,19 @@ class QaxeHardware(Board):
             timeout=1                      # Set a read timeout
         )
 
+#        try:
+#            self._serial_port_ctrl.read_all()
+#        except:
+#            pass
+
+        self._switch_power(True)
+
     def _is_power_good(self):
         return True
 
     def set_fan_speed(self, speed):
+        self.pwm1 = speed
+        self._set_state()
         pass
 
     def read_temperature(self):
@@ -253,32 +269,79 @@ class QaxeHardware(Board):
     def set_led(self, state):
         pass
 
-    def reset_func(self, state):
+    def _request(self, op, params):
         request = coms_pb2.QRequest()
-        request.id = 123  # Set a unique ID for the request
-        request.op = 3 # reset
-        request.data = b'0x00'
+        request.id = self.reqid  # Set a unique ID for the request
+        request.op = op
+
+        if params is not None:
+            request.data = params.SerializeToString()
+        else:
+            request.data = b'0x00'
         request.data = bytes([len(request.data)]) + request.data
 
         serialized_request = request.SerializeToString()
         serialized_request = bytes([len(serialized_request)]) + serialized_request
+
         logging.debug("-> %s", binascii.hexlify(serialized_request).decode('utf8'))
+
         self._serial_port_ctrl.write(serialized_request)
 
-        response_data = self._serial_port_ctrl.read_until()
+        response_len = self._serial_port_ctrl.read()
+        logging.debug(f"rx len: {response_len}")
+        if len(response_len) == 1 and response_len[0] == 0:
+            self.reqid += 1
+            return coms_pb2.QResponse()
+
+        response_data = self._serial_port_ctrl.read(response_len[0])
+
         logging.debug("<- %s", binascii.hexlify(response_data).decode('utf8'))
+
         response = coms_pb2.QResponse()
-        response.ParseFromString(response_data[1:])
-        if response.error != 0:
-            logging.error("reset failed")
+        response.ParseFromString(response_data)
 
-        print(f"id: {response.id}, error: {response.error}")
-        #os._exit(0)
+        if response.id != self.reqid:
+            logging.error(f"request and response IDs mismatch! {response.id} vs {self.reqid}")
 
+        self.reqid += 1
+        return response
 
+    def read_temperature(self):
+        with self.serial_port_ctrl_lock:
+            resp = self._request(2, None)
+            if resp is None or resp.error != 0:
+                raise Exception("failed reading status!")
+
+            status = coms_pb2.QState()
+            status.ParseFromString(resp.data[1:])
+
+            return status.temp1 * 0.0625
+
+    def _set_state(self):
+        with self.serial_port_ctrl_lock:
+            qcontrol = coms_pb2.QControl()
+            qcontrol.state_1v2 = self.state
+            qcontrol.pwm1 = int(min(100, self.pwm1 * 100.0))
+            qcontrol.pwm2 = int(min(100, self.pwm2 * 100.0))
+            if self._request(1, qcontrol).error != 0:
+                raise Exception("couldn't switch power!")
+
+    def _switch_power(self, state):
+        self.state = 0 if not state else 1
+        self._set_state()
+
+        time.sleep(5)
+
+    def reset_func(self, dummy):
+        with self.serial_port_ctrl_lock:
+            if self._request(3, None).error != 0:
+                raise Exception("error resetting qaxe!")
+            time.sleep(5)
 
     def shutdown(self):
-        pass
+        # disable buck converter
+        logging.info("shutdown miner ...")
+        self._switch_power(False)
 
     def serial_port(self):
         return self._serial_port_asic
@@ -506,12 +569,23 @@ class BM1366Miner:
         current_time = time.time()
         total_work = 0
 
+        #min_timestamp = current_time
+        #max_timestamp = 0
         for shares, difficulty, timestamp in self.shares:
             # Consider shares only in the last 10 minutes
             if current_time - timestamp <= time_period:
                 total_work += shares * (difficulty << 32)
+                #min_timestamp = min(min_timestamp, timestamp)
+                #max_timestamp = max(max_timestamp, timestamp)
+
+        #if min_timestamp > max_timestamp:
+        #    raise Exception("timestamp range calculation failed")
+
+        #if min_timestamp == max_timestamp:
+        #    return 0.0
 
         # Hash rate in H/s (Hashes per second)
+        #hash_rate_hps = total_work / (max_timestamp - min_timestamp)
         hash_rate_hps = total_work / time_period
 
         # Convert hash rate to GH/s
@@ -564,8 +638,8 @@ class BM1366Miner:
                     data[i] = self._buffer[self._read_index % 64]
                     self._read_index += 1
 
-                if self.debug_bm1366:
-                    logging.debug("<- %s", bytes(data).hex())
+                #if self.debug_bm1366:
+                #    logging.debug("<- %s", bytes(data).hex())
 
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
                 if not asic_result or not asic_result.nonce:
@@ -616,6 +690,8 @@ class BM1366Miner:
 
                         logging.debug(f"mask_nonce:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
                         logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
+                        logging.debug("x-nonce:       %d", (mask_nonce & ~0xffff03fe))
+
 
                     with self.stats.lock:
                         if hash < network_target:
