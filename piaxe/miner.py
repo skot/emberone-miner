@@ -393,9 +393,10 @@ class BM1366Miner:
     def shutdown(self):
         # signal the threads to end
         self.stop_event.set()
+        self.influx.stop_event.set()
 
         # join all threads
-        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread]:
+        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread, self.influx.submit_thread]:
             if t is not None:
                 t.join(5)
 
@@ -675,10 +676,13 @@ class BM1366Miner:
                         version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
                     )
 
+
                     is_valid, hash, zeros = shared.verify_work(difficulty, job, result)
                     network_target, network_zeros = shared.nbits_to_target(job._nbits)
+                    pool_target, pool_zeros = shared.get_network_target(difficulty)
 
                     logging.debug("network-target: %s (%d)", network_target, network_zeros)
+                    logging.debug("pool-target:    %s (%d)", pool_target, pool_zeros)
                     logging.debug("found hash:     %s (%d)", hash, zeros)
 
                     if hash < network_target:
@@ -690,8 +694,6 @@ class BM1366Miner:
 
                         logging.debug(f"mask_nonce:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
                         logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
-                        logging.debug("x-nonce:       %d", (mask_nonce & ~0xffff03fe))
-
 
                     with self.stats.lock:
                         if hash < network_target:
@@ -702,7 +704,7 @@ class BM1366Miner:
                         self.stats.valid_shares += 1 if is_valid else 0
                         # don't add to shares if it's invalid to not mess up hashrate stats
                         if is_valid:
-                            self.shares.append((1, self.stats.difficulty, time.time()))
+                            self.shares.append((1, difficulty, time.time()))
                         self.stats.hashing_speed = self.hash_rate()
                         hash_difficulty = shared.calculate_difficulty_from_hash(hash)
                         self.stats.best_difficulty = max(self.stats.best_difficulty, hash_difficulty)
@@ -784,6 +786,7 @@ class BM1366Miner:
 
     def start_job(self, job):
         logging.info("starting new job %s", job._job_id)
+
         self.last_job_time = time.time()
         with self.job_lock:
             self.current_job = job
