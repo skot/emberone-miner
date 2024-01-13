@@ -1,6 +1,6 @@
 debug_bm1366: false
 verify_solo: true
-miner: piaxe
+miner: qaxe
 
 piaxe:
   name: PiAxe
@@ -26,7 +26,7 @@ qaxe:
   chips: 4
   fan_speed_1: 1.0
   fan_speed_2: 0.0
-  asic_frequency: 410
+  asic_frequency: 442
   serial_port_asic: "/dev/ttyACM1"
   serial_port_ctrl: "/dev/ttyACM2"
 
@@ -40,7 +40,7 @@ alerter:
 
 
 influx:
-  enabled: false
+  enabled: true
   host: localhost
   port: 8086
   token: f37fh783hf8hq
