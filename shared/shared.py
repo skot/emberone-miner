@@ -414,6 +414,11 @@ def verify_work(difficulty, job, result):
 
     return hash_str < target, hash_str, leading_zeros
 
+def get_network_target(difficulty):
+    target = int_to_hex256(calculate_target(difficulty))
+    leading_zeros = count_leading_zeros(target)
+    return target, leading_zeros
+
 
 def decode_bech32(address):
     hrp = address.split('1')[0]

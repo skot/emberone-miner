@@ -1,9 +1,10 @@
-debug_bm1366: true
+debug_bm1366: false
 verify_solo: true
 miner: piaxe
 
 piaxe:
   name: PiAxe
+  chips: 1
   asic_frequency: 485
   sdn_pin: 11
   pgood_pin: 13
@@ -16,12 +17,16 @@ piaxe:
 
 bitcrane:
   name: BitCrane
+  chips: 1000
   asic_frequency: 300
   fan_speed: 0.25
 
 qaxe:
   name: Qaxe
-  asic_frequency: 485
+  chips: 4
+  fan_speed_1: 1.0
+  fan_speed_2: 0.0
+  asic_frequency: 410
   serial_port_asic: "/dev/ttyACM1"
   serial_port_ctrl: "/dev/ttyACM2"
 
