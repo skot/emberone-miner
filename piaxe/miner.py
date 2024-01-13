@@ -1,3 +1,4 @@
+# piaxe
 try:
     import RPi.GPIO as GPIO
     from rpi_hardware_pwm import HardwarePWM
@@ -15,9 +16,14 @@ import math
 import yaml
 import json
 
-from . import coms_pb2
-import binascii
+# qaxe
+try:
+    from . import coms_pb2
+    import binascii
+except:
+    pass
 
+# bitcrane
 try:
     import pyftdi.serialext
     from pyftdi.gpio import GpioSyncController

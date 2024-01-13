@@ -1,6 +1,6 @@
 debug_bm1366: false
 verify_solo: true
-miner: qaxe
+miner: piaxe
 
 piaxe:
   name: PiAxe
