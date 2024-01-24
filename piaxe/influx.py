@@ -11,6 +11,7 @@ import time
 class Stats:
     def __init__(self):
         self.temp = 25.0
+        self.temp2 = 25.0
         self.hashing_speed = 0.0
         self.invalid_shares = 0
         self.valid_shares = 0
@@ -24,6 +25,7 @@ class Stats:
         self.uptime = 0
         self.blocks_found = 0
         self.total_blocks_found = 0
+        self.duplicate_hashes = 0
 
         self.lock = threading.Lock()
 
@@ -64,6 +66,7 @@ class Influx:
             with self.stats.lock:
                 point = Point(f"{ self.stats_name }").time(datetime.now(self.tz), WritePrecision.NS) \
                     .field("temperature", float(self.stats.temp)) \
+                    .field("temperature2", float(self.stats.temp2)) \
                     .field("hashing_speed", float(self.stats.hashing_speed)) \
                     .field("invalid_shares", int(self.stats.invalid_shares)) \
                     .field("valid_shares", int(self.stats.valid_shares)) \
@@ -76,7 +79,8 @@ class Influx:
                     .field("total_uptime", int(self.stats.total_uptime)) \
                     .field("total_blocks_found", int(self.stats.total_blocks_found)) \
                     .field("blocks_found", int(self.stats.blocks_found)) \
-                    .field("difficulty", int(self.stats.difficulty))
+                    .field("difficulty", int(self.stats.difficulty)) \
+                    .field("duplicate_hashes", int(self.stats.duplicate_hashes))
 
             try:
                 write_api = self.client.write_api(write_options=SYNCHRONOUS)

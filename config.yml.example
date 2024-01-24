@@ -13,20 +13,23 @@ piaxe:
   pwm_hz: 1000
   pwm_duty_cycle: 80
   lm75_address: 0x48
+  extranonce2_interval: 1.5
   serial_port: "/dev/ttyS0"
 
 bitcrane:
   name: BitCrane
   chips: 1000
   asic_frequency: 300
+  extranonce2_interval: 1.5
   fan_speed: 0.25
 
 qaxe:
   name: Qaxe
   chips: 4
   fan_speed_1: 1.0
-  fan_speed_2: 0.0
-  asic_frequency: 442
+  fan_speed_2: 1.0
+  asic_frequency: 485
+  extranonce2_interval: 1.9
   serial_port_asic: "/dev/ttyACM1"
   serial_port_ctrl: "/dev/ttyACM2"
 

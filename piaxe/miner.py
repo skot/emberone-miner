@@ -269,9 +269,6 @@ class QaxeHardware(Board):
         self._set_state()
         pass
 
-    def read_temperature(self):
-        return 0
-
     def set_led(self, state):
         pass
 
@@ -321,7 +318,7 @@ class QaxeHardware(Board):
             status = coms_pb2.QState()
             status.ParseFromString(resp.data[1:])
 
-            return status.temp1 * 0.0625
+            return [status.temp1 * 0.0625, status.temp2 * 0.0625]
 
     def _set_state(self):
         with self.serial_port_ctrl_lock:
@@ -389,6 +386,9 @@ class BM1366Miner:
         self.last_job_time = time.time()
         self.last_response = time.time()
 
+        self.found_hashes = dict()
+        self.found_timestamps = list()
+
         self.shares = list()
         self.stats = influx.Stats()
 
@@ -416,11 +416,11 @@ class BM1366Miner:
 
     def init(self):
         if self.miner == 'bitcrane':
-            self.hardware = BitcraneHardware(self.config['bitcrane'])
+            self.hardware = BitcraneHardware(self.config[self.miner])
         if self.miner == 'piaxe':
-            self.hardware = RPiHardware(self.config['piaxe'])
+            self.hardware = RPiHardware(self.config[self.miner])
         elif self.miner == "qaxe":
-            self.hardware = QaxeHardware(self.config['qaxe'])
+            self.hardware = QaxeHardware(self.config[self.miner])
         else:
             raise Exception('unknown miner: %s', self.miner)
 
@@ -430,7 +430,10 @@ class BM1366Miner:
         bm1366.ll_init(self._serial_tx_func, self._serial_rx_func,
                        self.hardware.reset_func)
 
-        chip_counter = bm1366.init(self.hardware.get_asic_frequency())
+        # default is: enable all chips
+        chips_enabled = self.config[self.miner].get('chips_enabled', None)
+
+        chip_counter = bm1366.init(self.hardware.get_asic_frequency(), chips_enabled)
 
         expected_chips = self.hardware.get_chip_count()
         if chip_counter != expected_chips:
@@ -439,6 +442,7 @@ class BM1366Miner:
         logging.info(f"{chip_counter} chips were found!")
 
         self.set_difficulty(512)
+        self.extranonce2_interval = self.config[self.miner]["extranonce2_interval"]
 
         self.temp_thread = threading.Thread(target=self._monitor_temperature)
         self.temp_thread.start()
@@ -536,12 +540,15 @@ class BM1366Miner:
         while not self.stop_event.is_set():
             temp = self.hardware.read_temperature()
 
-            logging.info("temperature: %.3f", temp)
+            temp = [temp, 0] if not isinstance(temp, list) else temp
+
+            logging.info("temperature: %s", str(temp))
 
             with self.stats.lock:
-                self.stats.temp = temp
+                self.stats.temp = temp[0]
+                self.stats.temp2 = temp[1]
 
-            if temp > 70.0:
+            if temp[0] > 70.0:
                 logging.error("too hot, shutting down ...")
                 self.hardware.shutdown()
                 os._exit(1)
@@ -571,6 +578,29 @@ class BM1366Miner:
             return data
 
         return None
+
+    def cleanup_duplicate_finds(self):
+        current_time = time.time()
+
+        # clean up dict, delete old hashes, counts elements to pop from the list
+        remove_first_n=0
+        for timestamp, hash_key in self.found_timestamps:
+            if current_time - timestamp > 600:
+                #logging.debug(f"removing {hash_key} from found_hashes dict")
+                if hash_key in self.found_hashes:
+                    del self.found_hashes[hash_key]
+                else:
+                    pass
+                    #logging.debug(f"{hash_key} not in dict")
+                remove_first_n += 1
+            else:
+                break
+
+        # pop elements
+        #logging.debug(f"removing first {remove_first_n} element(s) of found_timestamps list")
+        for i in range(0, remove_first_n):
+            self.found_timestamps.pop(0)
+
 
     def hash_rate(self, time_period=600):
         current_time = time.time()
@@ -691,8 +721,31 @@ class BM1366Miner:
                     logging.debug("pool-target:    %s (%d)", pool_target, pool_zeros)
                     logging.debug("found hash:     %s (%d)", hash, zeros)
 
+                    # detect duplicates
+                    duplicate = hash in self.found_hashes
+
+                    self.cleanup_duplicate_finds()
+
+                    # save hash in dict
+                    self.found_hashes[hash] = True
+                    self.found_timestamps.append((time.time(), hash))
+
+                    # some debug info
+                    #logging.debug(f"{len(self.found_hashes)} in found_hashes dict, {len(self.found_timestamps)} in found_timestamps list")
+
+                    if duplicate:
+                        logging.warn("found duplicate hash!")
+
                     if hash < network_target:
                         logging.info("!!! it seems we found a block !!!")
+
+                    # the hash isn't completly wrong but isn't lower than the target
+                    # the asic uses power-of-two targets but the pool might not (eg ckpool)
+                    # we should just pretend it didn't happen and not count it^^
+                    if not is_valid and zeros >= pool_zeros:
+                        logging.info("ignoring hash because higher than pool target")
+                        continue
+
 
                     if is_valid:
                         mask_nonce |= asic_result.nonce
@@ -700,27 +753,35 @@ class BM1366Miner:
 
                         logging.debug(f"mask_nonce:   %s (%08x)", shared.int_to_bin32(mask_nonce, 4), mask_nonce)
                         logging.debug(f"mask_version: %s (%08x)", shared.int_to_bin32(mask_version, 4), mask_version)
+                        x_nonce = (asic_result.nonce & 0x0000fc00) >> 10
+                        logging.debug(f"result from asic {x_nonce}")
 
                     with self.stats.lock:
                         if hash < network_target:
                             self.stats.blocks_found += 1
                             self.stats.total_blocks_found += 1
 
+                        if duplicate:
+                            self.stats.duplicate_hashes += 1
+
                         self.stats.invalid_shares += 1 if not is_valid else 0
                         self.stats.valid_shares += 1 if is_valid else 0
-                        # don't add to shares if it's invalid to not mess up hashrate stats
-                        if is_valid:
+
+                        # don't add to shares if it's invalid or it's a duplicate
+                        if is_valid and not duplicate:
                             self.shares.append((1, difficulty, time.time()))
+
                         self.stats.hashing_speed = self.hash_rate()
                         hash_difficulty = shared.calculate_difficulty_from_hash(hash)
                         self.stats.best_difficulty = max(self.stats.best_difficulty, hash_difficulty)
                         self.stats.total_best_difficulty = max(self.stats.total_best_difficulty, hash_difficulty)
 
                     # restart miner with new extranonce2
-                    self.new_job_event.set()
+                    #self.new_job_event.set() TODO
 
                 # submit result without lock on the job!
-                if not is_valid:
+                # we don't submit invalid hashes or duplicates
+                if not is_valid or duplicate:
                     # if its invalid it would be rejected
                     # we don't try it but we can count it to not_accepted
                     self.not_accepted_callback()
@@ -742,7 +803,7 @@ class BM1366Miner:
         logging.info("job thread started ...")
         current_time = time.time()
         while not self.stop_event.is_set():
-            self.new_job_event.wait(1.5)
+            self.new_job_event.wait(self.extranonce2_interval)
             self.new_job_event.clear()
 
             with self.job_lock:

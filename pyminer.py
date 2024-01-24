@@ -462,6 +462,19 @@ def sigint_handler(signal_received, frame):
       pyminer.shutdown()
     os._exit(0)
 
+def handle_exception(exc_type, exc_value, exc_traceback):
+    """
+    Custom exception handler.
+    Logs the exception information before the program exits.
+    """
+    if issubclass(exc_type, KeyboardInterrupt):
+        # For user interrupts, log at a lower level and do not include traceback
+        logging.warning("Application interrupted by user.")
+    else:
+        # Log all other exceptions with traceback
+        logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+
 # CLI for cpu mining
 if __name__ == '__main__':
   import argparse
@@ -517,6 +530,9 @@ if __name__ == '__main__':
     log_level = logging.DEBUG
 
   setup_logging(log_level, options.logfile)
+
+  # write all exceptions to log file
+  sys.excepthook = handle_exception
 
   log_protocol = options.protocol
 
