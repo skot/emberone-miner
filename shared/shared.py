@@ -459,7 +459,7 @@ def verify_solo(btc_address, coinb):
         value_total += output['value']
 
     if value_our != value_total:
-        raise Exception("not getting all rewards! %d vs %d", value_our, value_total)
+        raise Exception("not getting all rewards! {} vs {}".format(value_our, value_total))
 
     return True, value_our, value_total
 
