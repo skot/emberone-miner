@@ -575,9 +575,8 @@ class BM1366Miner:
         if self.debug_bm1366 and bytes_read > 0:
             logging.debug("serial_rx: %d", bytes_read)
             logging.debug("<- %s", data.hex())
-            return data
 
-        return None
+        return data if bytes_read > 0 else None
 
     def cleanup_duplicate_finds(self):
         current_time = time.time()
