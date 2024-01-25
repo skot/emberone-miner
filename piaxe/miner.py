@@ -626,6 +626,7 @@ class BM1366Miner:
 
         # Convert hash rate to GH/s
         hash_rate_ghps = hash_rate_hps / 1e9
+        logging.debug("\033[32mhash rate: %f GH/s\033[0m", hash_rate_ghps)
         return hash_rate_ghps
 
     def _set_target(self, target):

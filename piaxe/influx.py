@@ -123,7 +123,7 @@ class Influx:
 
         # Execute the query
         # better to let it raise an exception instead of resetting the total counters
-        tables = self.client.query_api().query(query, org="piaxe")
+        tables = self.client.query_api().query(query, org=self.org)
 
 
         # Process the results
