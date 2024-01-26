@@ -1,11 +1,8 @@
 # Hardware
 
-PiAxe is a Raspberry Pi mining HAT based on the BitAxe Ultra 1.3 (with BM1366) design.
+PiAxe-Miner is the software needed to run the PiAxe and QAxe.
 
-<img src="https://github.com/shufps/piaxe-miner/assets/3079832/bde9dbb6-5687-4b4b-b0a8-7d4b83432937" width="500px"/>
-
-The repository with design files, BOM, ... can be found here:
-https://github.com/shufps/piaxe
+The repository with design files, BOM, ... can be found [here](https://github.com/shufps/piaxe)!
 
 
 # Stratum Client Software
@@ -70,3 +67,52 @@ $ curl --user bitcoin --data-binary '{"jsonrpc": "1.0", "id": "curltest", "metho
 $ curl --user bitcoin --data-binary '{"jsonrpc": "1.0", "id": "curltest", "method": "getnewaddress", "params": []}' -H 'content-type: text/plain;' http://127.0.0.1:18332/
 ```
 
+---
+
+# Setup Instructions
+
+## Requirements
+- Raspberry Pi 3 (Pi Zero doesn't run influx)
+- Python 3.x PIP
+- PIP dependencies 
+`bech32==1.2.0
+influxdb_client==1.38.0
+pyserial==3.5b0
+pytz==2021.1
+PyYAML==6.0.1
+Requests==2.31.0
+rpi_hardware_pwm==0.1.4
+smbus==1.1.post2
+protobuf`
+
+Extra info: if your miner failes to start you might need to downgrade protobuf. But the logs shall provide detailed information about that.
+
+## Installation
+configure the `config.yml` file to your needs
+change values like the miner type and debug value
+
+Depending on your Device change between
+`piaxe` and `qaxe` in the `miner` setting.
+
+Make sure to change to the correct USB Serial `PiAxe`:
+```
+  serial_port: "/dev/ttyS0"
+``` 
+</br>
+
+Make sure to change to the correct USB Serial `QAxe`:
+```
+  serial_port_asic: "/dev/ttyACM0"
+  serial_port_ctrl: "/dev/ttyACM1"
+```
+### If running on Pi Zero (1 or 2)
+Disable the influx or point it to your externally managed influxdb, with the most recent changes the pi zero can no longer run grafana.
+
+
+## Start the miner
+
+Change `start_mainnet_publicpool_example.sh` to your needs.
+
+
+### For more detailed logging
+Activate debug_bm1366 to get a more detailed output in shell.
