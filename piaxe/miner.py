@@ -37,6 +37,7 @@ from shared import shared
 from . import bm1366
 from . import influx
 from . import discord
+from .ssd1306 import SSD1306
 
 class Job(shared.Job):
     def __init__(
@@ -374,6 +375,7 @@ class BM1366Miner:
         self.job_thread = None
         self.receive_thread = None
         self.temp_thread = None
+        self.display_thread = None
         self.job_lock = threading.Lock()
         self.serial_lock = threading.Lock()
         self.stop_event = threading.Event()
@@ -391,6 +393,7 @@ class BM1366Miner:
 
         self.shares = list()
         self.stats = influx.Stats()
+        self.display = SSD1306(self.stats)
 
         self.miner = self.config['miner']
         self.verify_solo = self.config.get('verify_solo', False)
@@ -402,7 +405,7 @@ class BM1366Miner:
         self.influx.stop_event.set()
 
         # join all threads
-        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread, self.influx.submit_thread]:
+        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.display_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread, self.influx.submit_thread]:
             if t is not None:
                 t.join(5)
 
@@ -486,6 +489,10 @@ class BM1366Miner:
             else:
                 raise Exception(f"unknown alerter: {alerter_config['type']}")
 
+        i2c_config = self.config.get("i2c", None)
+        if i2c_config is not None and i2c_config.get("enabled", False):
+            self.display_thread = threading.Thread(target=self._display_update)
+            self.display_thread.start()
 
     def _uptime_counter_thread(self):
         logging.info("uptime counter thread started ...")
@@ -554,6 +561,13 @@ class BM1366Miner:
                 os._exit(1)
 
             time.sleep(1.5)
+
+    def _display_update(self):
+        logging.info("display update ...")
+        while not self.stop_event.is_set():
+                self.display.update()
+                time.sleep(2)
+        logging.info("display update ended ...")
 
     def _serial_tx_func(self, data):
         with self.serial_lock:
