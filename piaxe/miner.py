@@ -397,6 +397,7 @@ class BM1366Miner:
 
         self.shares = list()
         self.stats = influx.Stats()
+
         self.display = SSD1306(self.stats)
 
         self.miner = self.config['miner']
@@ -521,6 +522,7 @@ class BM1366Miner:
 
     def _display_update(self):
         logging.info("display update ...")
+        self.display.init()
         while not self.stop_event.is_set():
                 self.display.update()
                 time.sleep(2)
