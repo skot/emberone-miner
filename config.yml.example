@@ -50,3 +50,7 @@ influx:
   org: piaxe
   bucket: piaxe
   timezone: Europe/Berlin
+
+
+i2c_display:
+  enabled: false
