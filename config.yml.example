@@ -52,5 +52,5 @@ influx:
   timezone: Europe/Berlin
 
 
-i2c:
+i2c_display:
   enabled: false

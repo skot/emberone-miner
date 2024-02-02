@@ -37,7 +37,11 @@ from shared import shared
 from . import bm1366
 from . import influx
 from . import discord
-from .ssd1306 import SSD1306
+
+try:
+    from .ssd1306 import SSD1306
+except:
+    pass
 
 class Job(shared.Job):
     def __init__(
@@ -489,7 +493,7 @@ class BM1366Miner:
             else:
                 raise Exception(f"unknown alerter: {alerter_config['type']}")
 
-        i2c_config = self.config.get("i2c", None)
+        i2c_config = self.config.get("i2c_display", None)
         if i2c_config is not None and i2c_config.get("enabled", False):
             self.display_thread = threading.Thread(target=self._display_update)
             self.display_thread.start()
