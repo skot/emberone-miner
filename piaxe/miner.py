@@ -515,6 +515,12 @@ class BM1366Miner:
         self.alerter.alert("MINER", "shutdown")
         logging.info("Alerter thread ended ...")
 
+    def _display_update(self):
+        logging.info("display update ...")
+        while not self.stop_event.is_set():
+                self.display.update()
+                time.sleep(2)
+        logging.info("display update ended ...")
 
     def _led_thread(self):
         logging.info("LED thread started ...")
@@ -561,13 +567,6 @@ class BM1366Miner:
                 os._exit(1)
 
             time.sleep(1.5)
-
-    def _display_update(self):
-        logging.info("display update ...")
-        while not self.stop_event.is_set():
-                self.display.update()
-                time.sleep(2)
-        logging.info("display update ended ...")
 
     def _serial_tx_func(self, data):
         with self.serial_lock:
