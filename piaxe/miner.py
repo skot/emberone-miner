@@ -34,6 +34,7 @@ except:
 import threading
 from shared import shared
 
+from . import ssd1306
 from . import bm1366
 from . import influx
 from . import discord

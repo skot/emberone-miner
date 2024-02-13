@@ -1,5 +1,8 @@
-import Adafruit_SSD1306
-from PIL import Image, ImageDraw, ImageFont
+try:
+    import Adafruit_SSD1306
+    from PIL import Image, ImageDraw, ImageFont
+except:
+    pass
 
 RST = None
 
