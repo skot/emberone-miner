@@ -12,7 +12,7 @@ Changes:
 
 - Removed Scrypt hashing and added Miner class
 - Made it work with Python3
-- added [PiAxe](https://github.com/shufps/piaxe) as miner
+- added [PiAxe](https://github.com/shufps/piaxe) and [QAxe](https://github.com/shufps/qaxe) as miner
 - added reconnect logic on broken connections
 
 Influx and Grafana
@@ -57,14 +57,6 @@ Usage
 
     Example:
         python pyminer.py -o stratum+tcp://foobar.com:3333 -u user -p passwd
-```
-
-
-
-Misc:
-```
-$ curl --user bitcoin --data-binary '{"jsonrpc": "1.0", "id": "curltest", "method": "createwallet", "params": ["piaxe-wallet"]}' -H 'content-type: text/plain;' http://127.0.0.1:18332/
-$ curl --user bitcoin --data-binary '{"jsonrpc": "1.0", "id": "curltest", "method": "getnewaddress", "params": []}' -H 'content-type: text/plain;' http://127.0.0.1:18332/
 ```
 
 ---
