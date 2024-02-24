@@ -24,7 +24,7 @@ bitcrane:
   fan_speed: 0.25
 
 qaxe:
-  name: Qaxe
+  name: QAxe
   chips: 4
   fan_speed_1: 1.0
   fan_speed_2: 1.0
