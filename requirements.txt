@@ -6,3 +6,5 @@ PyYAML==6.0.1
 Requests==2.31.0
 rpi_hardware_pwm==0.1.4
 smbus==1.1.post2
+google==3.0.0
+protobuf==3.20.0
