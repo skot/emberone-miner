@@ -500,6 +500,8 @@ if __name__ == '__main__':
 
   parser.add_argument('-l', '--log-file', dest = 'logfile', default='', help = 'log to file')
 
+  parser.add_argument('-c', '--config', dest = 'config', default='config.yml', help="use configfile")
+
   options = parser.parse_args(sys.argv[1:])
 
   message = None
@@ -551,7 +553,7 @@ if __name__ == '__main__':
     logging.error("unknown address type: %s", address)
 
   # Load configuration from YAML
-  with open('config.yml', 'r') as file:
+  with open(options.config, 'r') as file:
       config = yaml.safe_load(file)
 
   piaxeMiner = miner.BM1366Miner(config, address, network)
