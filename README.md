@@ -91,6 +91,9 @@ Make sure to change to the correct USB Serial `QAxe`:
   serial_port_asic: "/dev/ttyACM0"
   serial_port_ctrl: "/dev/ttyACM1"
 ```
+
+**tip**: if you are unsure which ttyACMs are the right one, you can use `dmesg` to view the latest system messages.
+
 ### If running on Pi Zero (1 or 2)
 Disable the influx or point it to your externally managed influxdb, with the most recent changes the pi zero can no longer run grafana.
 
