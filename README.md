@@ -66,20 +66,14 @@ Usage
 ## Requirements
 - Raspberry Pi 3 (Pi Zero doesn't run influx)
 - Python 3.x PIP
-- PIP dependencies 
-`bech32==1.2.0
-influxdb_client==1.38.0
-pyserial==3.5b0
-pytz==2021.1
-PyYAML==6.0.1
-Requests==2.31.0
-rpi_hardware_pwm==0.1.4
-smbus==1.1.post2
-protobuf`
-
-Extra info: if your miner failes to start you might need to downgrade protobuf. But the logs shall provide detailed information about that.
 
 ## Installation
+
+Install the required python packages via
+```
+pip3 install -r requirements.txt
+```
+
 configure the `config.yml` file to your needs
 change values like the miner type and debug value
 
