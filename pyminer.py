@@ -293,12 +293,13 @@ class Miner(SimpleJsonRpcClient):
 
   class MinerAuthenticationException(SimpleJsonRpcClient.RequestReplyException): pass
 
-  def __init__(self, url, username, password, miner):
+  def __init__(self, url, username, password, miner, suggest_difficulty):
     SimpleJsonRpcClient.__init__(self)
 
     self._url = url
     self._username = username
     self._password = password
+    self._suggest_difficulty = suggest_difficulty
 
     self._subscription = SubscriptionSHA256D()
 
@@ -425,6 +426,9 @@ class Miner(SimpleJsonRpcClient):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((hostname, port))
     self.connect(sock)
+
+    if self._suggest_difficulty:
+        self.send(method = 'mining.suggest_difficulty', params = [self._suggest_difficulty])
 
     self.send(method = 'mining.subscribe', params = [ f"{self._miner.get_user_agent()}" ])
 
@@ -556,6 +560,8 @@ if __name__ == '__main__':
   with open(options.config, 'r') as file:
       config = yaml.safe_load(file)
 
+  suggest_difficulty = config.get('suggest_difficulty', None)
+
   piaxeMiner = miner.BM1366Miner(config, address, network)
   piaxeMiner.init()
 
@@ -563,7 +569,7 @@ if __name__ == '__main__':
 
   while True:
     try:
-      pyminer = Miner(options.url, username, password, piaxeMiner)
+      pyminer = Miner(options.url, username, password, piaxeMiner, suggest_difficulty)
       pyminer.serve()
     except Exception as e:
       logging.error("exception in serve ... restarting client")
