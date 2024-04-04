@@ -125,8 +125,6 @@ class TaskResult:
         self.rolled_version = rolled_version
 
 
-asic_clocks = list()
-
 def ll_init(_serial_tx_func, _serial_rx_func, _reset_func):
     global serial_tx_func, serial_rx_func, reset_func
     serial_tx_func = _serial_tx_func
@@ -282,10 +280,6 @@ def send_init(frequency, expected, chips_enabled = None):
         send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x80, 0x20])
         send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x82, 0xAA])
         time.sleep(0.500)
-
-    global asic_clocks
-    for id in range(0, chip_counter):
-        asic_clocks.append(frequency)
 
     do_frequency_ramp_up(frequency)
 
