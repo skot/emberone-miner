@@ -321,7 +321,7 @@ class QaxeHardware(Board):
         self.reqid += 1
         return response
 
-    def read_temperature(self):
+    def read_temperature_and_voltage(self):
         with self.serial_port_ctrl_lock:
             resp = self._request(2, None)
             if resp is None or resp.error != 0:
@@ -330,7 +330,10 @@ class QaxeHardware(Board):
             status = coms_pb2.QState()
             status.ParseFromString(resp.data[1:])
 
-            return [status.temp1 * 0.0625, status.temp2 * 0.0625]
+            return {
+                "temp": [status.temp1 * 0.0625, status.temp2 * 0.0625, 0, 0],
+                "voltage": [0, 0, 0, 0],
+            }
 
     def _set_state(self):
         with self.serial_port_ctrl_lock:
