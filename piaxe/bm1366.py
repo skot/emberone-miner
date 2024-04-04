@@ -172,7 +172,7 @@ def send_chain_inactive():
 def set_chip_address(chipAddr):
     send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS, [chipAddr, 0x00])
 
-def send_hash_frequency2(target_freq, max_diff = 0.001):
+def send_hash_frequency2(id, target_freq, max_diff = 0.001):
     freqbuf = bytearray([0x00, 0x08, 0x40, 0xA0, 0x02, 0x41])  # freqbuf - pll0_parameter
     postdiv_min = 255
     postdiv2_min = 255
@@ -202,7 +202,11 @@ def send_hash_frequency2(target_freq, max_diff = 0.001):
     freqbuf[4] = best[0]
     freqbuf[5] = ((best[2] - 1) & 0xf) << 4 | (best[3] - 1) & 0xf
 
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf)
+    if id != -1:
+        freqbuf[0] = id*2
+        send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, freqbuf)
+    else:
+        send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf)
 
     logging.info(f"Setting Frequency to {target_freq:.2f}MHz ({best[4]:.2f})")
 
@@ -214,11 +218,11 @@ def do_frequency_ramp_up(frequency):
     step = 6.25
     target= frequency
 
-    send_hash_frequency2(start)
+    send_hash_frequency2(-1, start)
     while current < target:
         next_step = min(step, target-current)
         current += next_step
-        send_hash_frequency2(current)
+        send_hash_frequency2(-1, current)
         time.sleep(0.100)
 
 def count_asic_chips():
@@ -242,12 +246,15 @@ def count_asic_chips():
     return chip_counter
 
 
-def send_init(frequency, chips_enabled = None):
+def send_init(frequency, expected, chips_enabled = None):
     send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
     send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
     send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
 
     chip_counter = count_asic_chips()
+
+    if chip_counter != expected:
+        raise Exception(f"chips mismatch. expected: {expected}, actual: {chip_counter}")
 
     send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xa8, 0x00, 0x07, 0x00, 0x00])
     send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x18, 0xff, 0x0f, 0xc1, 0x00])
@@ -295,12 +302,12 @@ def reset():
     reset_func(False)
     time.sleep(0.5)
 
-def init(frequency, chips_enabled = None):
+def init(frequency, expected, chips_enabled = None):
     logging.info("Initializing BM1366")
 
     reset()
 
-    return send_init(frequency, chips_enabled)
+    return send_init(frequency, expected, chips_enabled)
 
 # Baud formula = 25M/((denominator+1)*8)
 # The denominator is 5 bits found in the misc_control (bits 9-13)

@@ -12,6 +12,12 @@ class Stats:
     def __init__(self):
         self.temp = 25.0
         self.temp2 = 25.0
+        self.temp3 = 25.0
+        self.temp4 = 25.0
+        self.vdomain1 = 1200
+        self.vdomain2 = 1200
+        self.vdomain3 = 1200
+        self.vdomain4 = 1200
         self.hashing_speed = 0.0
         self.invalid_shares = 0
         self.valid_shares = 0
@@ -67,6 +73,12 @@ class Influx:
                 point = Point(f"{ self.stats_name }").time(datetime.now(self.tz), WritePrecision.NS) \
                     .field("temperature", float(self.stats.temp)) \
                     .field("temperature2", float(self.stats.temp2)) \
+                    .field("temperature3", float(self.stats.temp3)) \
+                    .field("temperature4", float(self.stats.temp4)) \
+                    .field("vdomain1", float(self.stats.vdomain1)) \
+                    .field("vdomain2", float(self.stats.vdomain2)) \
+                    .field("vdomain3", float(self.stats.vdomain3)) \
+                    .field("vdomain4", float(self.stats.vdomain4)) \
                     .field("hashing_speed", float(self.stats.hashing_speed)) \
                     .field("invalid_shares", int(self.stats.invalid_shares)) \
                     .field("valid_shares", int(self.stats.valid_shares)) \

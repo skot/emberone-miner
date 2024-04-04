@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\ncoms.proto\"0\n\x08QRequest\x12\n\n\x02id\x18\x01 \x01(\x05\x12\n\n\x02op\x18\x02 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"4\n\tQResponse\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05\x65rror\x18\x02 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"9\n\x08QControl\x12\x11\n\tstate_1v2\x18\x01 \x01(\x05\x12\x0c\n\x04pwm1\x18\x02 \x01(\x05\x12\x0c\n\x04pwm2\x18\x03 \x01(\x05\"9\n\x06QState\x12\x11\n\tpgood_1v2\x18\x01 \x01(\x05\x12\r\n\x05temp1\x18\x02 \x01(\x05\x12\r\n\x05temp2\x18\x03 \x01(\x05\x62\x06proto3'
+  serialized_pb=b'\n\ncoms.proto\"0\n\x08QRequest\x12\n\n\x02id\x18\x01 \x01(\x05\x12\n\n\x02op\x18\x02 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"4\n\tQResponse\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05\x65rror\x18\x02 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"c\n\x08QControl\x12\x11\n\tstate_1v2\x18\x01 \x01(\x05\x12\x0c\n\x04pwm1\x18\x02 \x01(\x05\x12\x0c\n\x04pwm2\x18\x03 \x01(\x05\x12\x0c\n\x04pwm3\x18\x04 \x01(\x05\x12\x0c\n\x04pwm4\x18\x05 \x01(\x05\x12\x0c\n\x04led2\x18\x06 \x01(\x05\"\xb2\x01\n\x06QState\x12\x11\n\tpgood_1v2\x18\x01 \x01(\x05\x12\r\n\x05temp1\x18\x02 \x01(\x05\x12\r\n\x05temp2\x18\x03 \x01(\x05\x12\r\n\x05temp3\x18\x04 \x01(\x05\x12\r\n\x05temp4\x18\x05 \x01(\x05\x12\x0f\n\x07\x64omain1\x18\x06 \x01(\x05\x12\x0f\n\x07\x64omain2\x18\x07 \x01(\x05\x12\x0f\n\x07\x64omain3\x18\x08 \x01(\x05\x12\x0f\n\x07\x64omain4\x18\t \x01(\x05\x12\x15\n\rpower_enabled\x18\n \x01(\x05\x62\x06proto3'
 )
 
 
@@ -146,6 +146,27 @@ _QCONTROL = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='pwm3', full_name='QControl.pwm3', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='pwm4', full_name='QControl.pwm4', index=4,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='led2', full_name='QControl.led2', index=5,
+      number=6, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -159,7 +180,7 @@ _QCONTROL = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=118,
-  serialized_end=175,
+  serialized_end=217,
 )
 
 
@@ -192,6 +213,55 @@ _QSTATE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='temp3', full_name='QState.temp3', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='temp4', full_name='QState.temp4', index=4,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='domain1', full_name='QState.domain1', index=5,
+      number=6, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='domain2', full_name='QState.domain2', index=6,
+      number=7, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='domain3', full_name='QState.domain3', index=7,
+      number=8, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='domain4', full_name='QState.domain4', index=8,
+      number=9, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='power_enabled', full_name='QState.power_enabled', index=9,
+      number=10, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -204,8 +274,8 @@ _QSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=177,
-  serialized_end=234,
+  serialized_start=220,
+  serialized_end=398,
 )
 
 DESCRIPTOR.message_types_by_name['QRequest'] = _QREQUEST
