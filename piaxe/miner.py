@@ -715,7 +715,7 @@ class BM1366Miner:
                 self.stats.vdomain4 = temp["voltage"][3]
 
             for i in range(0, 4):
-                if temp[i] > 70.0:
+                if temp["temp"][i] > 70.0:
                     logging.error("too hot, shutting down ...")
                     self.hardware.shutdown()
                     os._exit(1)
