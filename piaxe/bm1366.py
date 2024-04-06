@@ -267,8 +267,8 @@ class BM1366:
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x54, 0x00, 0x00, 0x00, 0x03])
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x58, 0x02, 0x11, 0x11, 0x11])
 
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x2c, 0x00, 0x7c, 0x00, 0x03])
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
+        self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [0x00, 0x2c, 0x00, 0x7c, 0x00, 0x03])
+        #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
 
         for id in range(0, chip_counter):
             if chips_enabled is not None and id not in chips_enabled:
@@ -307,7 +307,7 @@ class BM1366:
 
         self.reset()
 
-        return self.send_init(self, frequency, expected, chips_enabled)
+        return self.send_init(frequency, expected, chips_enabled)
 
     # Baud formula = 25M/((denominator+1)*8)
     # The denominator is 5 bits found in the misc_control (bits 9-13)
@@ -383,7 +383,7 @@ class BM1366:
         return job_id & 0xf8
 
     def get_job_id(self, job_id):
-        return (job_id + 8) % 128
+        return ((self._internal_id << 3) & 0x7f) + 0x08
 
     def receive_work(self, timeout=100):
         # Read 11 bytes from serial port
@@ -410,10 +410,10 @@ class BM1368:
         self.chip_id_response="aa5513680000"
 
     def get_job_id_from_result(self, job_id):
-        return (job_id & 0xf0) >> 1
+        return job_id & 0xf0
 
     def get_job_id(self, job_id):
-        return (job_id + 24) % 128
+        return ((self._internal_id << 4) & 0x7f) + 0x10
 
     def send_init(self, frequency, expected, chips_enabled = None):
         # enable and set version rolling mask to 0xFFFF
