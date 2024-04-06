@@ -383,7 +383,7 @@ class BM1366:
         return job_id & 0xf8
 
     def get_job_id(self, job_id):
-        return ((self._internal_id << 3) & 0x7f) + 0x08
+        return ((self.job_id << 3) & 0x7f) + 0x08
 
     def receive_work(self, timeout=100):
         # Read 11 bytes from serial port
@@ -413,7 +413,7 @@ class BM1368:
         return job_id & 0xf0
 
     def get_job_id(self, job_id):
-        return ((self._internal_id << 4) & 0x7f) + 0x10
+        return ((self.job_id << 4) & 0x7f) + 0x10
 
     def send_init(self, frequency, expected, chips_enabled = None):
         # enable and set version rolling mask to 0xFFFF
