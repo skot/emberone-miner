@@ -568,26 +568,33 @@ class BM1366Miner:
     def init(self):
         if self.miner == 'bitcrane':
             self.hardware = BitcraneHardware(self.config[self.miner])
+            self.asics = bm1366.BM1366()
         if self.miner == 'piaxe':
             self.hardware = RPiHardware(self.config[self.miner])
+            self.asics = bm1366.BM1366()
         elif self.miner == "qaxe":
             self.hardware = QaxeHardware(self.config[self.miner])
+            self.asics = bm1366.BM1366()
+        elif self.miner == "qaxe+":
+            self.hardware = QaxeHardware(self.config[self.miner])
+            self.asics = bm1366.BM1368()
         elif self.miner == "flex4axe":
             self.hardware = Flex4AxeHardware(self.config[self.miner])
+            self.asics = bm1366.BM1366()
         else:
             raise Exception('unknown miner: %s', self.miner)
 
         self.serial_port = self.hardware.serial_port()
 
         # set the hardware dependent functions for serial and reset
-        bm1366.ll_init(self._serial_tx_func, self._serial_rx_func,
+        self.asics.ll_init(self._serial_tx_func, self._serial_rx_func,
                        self.hardware.reset_func)
 
 
         # default is: enable all chips
         chips_enabled = self.config[self.miner].get('chips_enabled', None)
 
-        chip_counter = bm1366.init(self.hardware.get_asic_frequency(), self.hardware.get_chip_count(), chips_enabled)
+        chip_counter = self.asics.init(self.hardware.get_asic_frequency(), self.hardware.get_chip_count(), chips_enabled)
 
 
         logging.info(f"{chip_counter} chips were found!")
@@ -805,7 +812,7 @@ class BM1366Miner:
 
         self._difficulty = difficulty
         self._set_target(shared.calculate_target(difficulty))
-        bm1366.set_job_difficulty_mask(difficulty)
+        self.asics.set_job_difficulty_mask(difficulty)
 
         with self.stats.lock:
             self.stats.difficulty = difficulty
@@ -855,7 +862,7 @@ class BM1366Miner:
 
                 with self.job_lock:
                     self.last_response = time.time()
-                    result_job_id = asic_result.job_id & 0xf8
+                    result_job_id = self.asics.get_job_id_from_result(asic_result.job_id)
                     logging.debug("work received %02x", result_job_id)
 
                     if result_job_id not in self._jobs:
@@ -876,7 +883,7 @@ class BM1366Miner:
                         extranonce2 = job._extranonce2, #shared.int_to_hex32(job._extranonce2),
                         ntime = job._ntime,
                         nonce = shared.int_to_hex32(asic_result.nonce),
-                        version = shared.int_to_hex32(bm1366.reverse_uint16(asic_result.version) << 13),
+                        version = shared.int_to_hex32(shared.reverse_uint16(asic_result.version) << 13),
                     )
 
 
@@ -984,7 +991,7 @@ class BM1366Miner:
                 self.current_job.set_extranonce2(extranonce2)
 
                 self._internal_id += 1
-                self._latest_work_id = ((self._internal_id << 3) & 0x7f) + 0x08
+                self._latest_work_id = self.asics.get_job_id(self._internal_id)
 
                 work = bm1366.WorkRequest()
                 logging.debug("new work %02x", self._latest_work_id)
@@ -1008,7 +1015,7 @@ class BM1366Miner:
 
                 self.led_event.set()
 
-                bm1366.send_work(work)
+                self.asics.send_work(work)
 
         logging.info("job thread ended ...")
 
