@@ -407,7 +407,7 @@ class BM1366:
 
 
 
-class BM1368:
+class BM1368(BM1366):
     def __init__(self):
         self.chip_id_response="aa5513680000"
 
