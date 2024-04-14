@@ -268,6 +268,8 @@ class BM1366:
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x58, 0x02, 0x11, 0x11, 0x11])
 
         self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [0x00, 0x2c, 0x00, 0x7c, 0x00, 0x03])
+
+        # change baud
         #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
 
         for id in range(0, chip_counter):
@@ -410,10 +412,11 @@ class BM1368:
         self.chip_id_response="aa5513680000"
 
     def get_job_id_from_result(self, job_id):
-        return job_id & 0xf0
+        return (job_id & 0xf0) >> 1
 
     def get_job_id(self, job_id):
-        return ((job_id << 4) & 0x7f) + 0x10
+        valid_ids=[0x18, 0x30, 0x48, 0x60, 0x78, 0x90, 0x28, 0x40, 0x58, 0x70, 0x88, 0x20, 0x38, 0x50, 0x68]
+        return valid_ids[job_id % len(valid_ids)]
 
     def send_init(self, frequency, expected, chips_enabled = None):
         # enable and set version rolling mask to 0xFFFF
@@ -428,6 +431,8 @@ class BM1368:
         if chip_counter != expected:
             raise Exception(f"chips mismatch. expected: {expected}, actual: {chip_counter}")
 
+        # enable and set version rolling mask to 0xFFFF again
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
         # Reg_A8
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xa8, 0x00, 0x07, 0x00, 0x00])
         # Misc Control
@@ -464,5 +469,8 @@ class BM1368:
             time.sleep(0.500)
 
         self.do_frequency_ramp_up(frequency)
+
+        # change baud
+        #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
 
         return chip_counter
