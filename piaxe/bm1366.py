@@ -121,6 +121,45 @@ class TaskResult:
         self.nonce = nonce
         self.rolled_version = rolled_version
 
+class ClockManager:
+    def __init__(self, bm1366, clocks, num_asics=1):
+        self.bm1366 = bm1366
+        self.num_asics = num_asics
+        if isinstance(clocks, list):
+            self.clocks = clocks
+        else:
+            self.clocks = [clocks for i in range(0, self.num_asics)]
+
+    def set_clock(self, id, clock):
+        logging.info(f"setting clock of {id} to {clock}")
+        try:
+            self.bm1366.send_hash_frequency2(id, clock)
+            # all
+            if id == -1:
+                self.clocks = [clock for i in range(0, self.num_asics)]
+            else:
+                self.clocks[id] = clock
+        except Exception as e:
+            raise(e)
+
+    def get_clock(self, id):
+        if id == -1:
+            return self.clocks
+        else:
+            return self.clocks[id]
+
+    def do_frequency_ramp_up(self, frequency):
+        start = current = 56.25
+        step = 6.25
+        target= frequency
+
+        self.set_clock(-1, start)
+        while current < target:
+            next_step = min(step, target-current)
+            current += next_step
+            self.set_clock(-1, current)
+            time.sleep(0.100)
+
 class BM1366:
     def __init__(self):
         self.chip_id_response="aa5513660000"
@@ -212,17 +251,6 @@ class BM1366:
         return freqbuf
 
 
-    def do_frequency_ramp_up(self, frequency):
-        start = current = 56.25
-        step = 6.25
-        target= frequency
-
-        self.send_hash_frequency2(-1, start)
-        while current < target:
-            next_step = min(step, target-current)
-            current += next_step
-            self.send_hash_frequency2(-1, current)
-            time.sleep(0.100)
 
     def count_asic_chips(self):
         self.send(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
@@ -283,7 +311,8 @@ class BM1366:
             self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x82, 0xAA])
             time.sleep(0.500)
 
-        self.do_frequency_ramp_up(frequency)
+        self.clock_manager = ClockManager(self, frequency, chip_counter)
+        self.clock_manager.do_frequency_ramp_up(frequency)
 
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x10, 0x00, 0x00, 0x15, 0x1c])
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])

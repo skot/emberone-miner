@@ -1,4 +1,4 @@
-debug_bm1366: false
+debug_bm1366: true
 verify_solo: true
 miner: piaxe
 suggest_difficulty: 2048
@@ -53,6 +53,15 @@ flex4axe:
   serial_port_asic: "/dev/ttyACM1"
   serial_port_ctrl: "/dev/ttyACM2"
 
+0xaxe:
+  name: 0xAxe
+  chips: 16
+  fan_speed_1: 1.0
+  asic_frequency: 480
+  extranonce2_interval: 1.9
+  serial_port_asic: "/dev/ttyACM1"
+  serial_port_ctrl: "/dev/ttyACM2"
+
 alerter:
   enabled: false
   type: discord-webhook
@@ -71,6 +80,10 @@ influx:
   bucket: piaxe
   timezone: Europe/Berlin
 
-
 i2c_display:
   enabled: false
+
+rest_api:
+  enabled: true
+  host: 127.0.0.1
+  port: 5000

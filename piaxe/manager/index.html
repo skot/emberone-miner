@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ASIC Frequency Adjuster</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .asic {
+    padding: 10px;
+    border: 1px solid #ccc;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<h1>ASIC Frequency Management</h1>
+<div id="status" style="color: red;"></div> <!-- Status bar for displaying messages -->
+<div class="grid" id="frequencies"></div>
+<script>
+host="" // e.g., "http://localhost:5000"
+function fetchFrequencies() {
+    $.get(`${host}/clocks`, function(data) {
+        let html = '';
+        data.forEach((freq, index) => {
+            const domain = Math.floor(index / 4) + 1;
+            html += `<div class="asic">ASIC ${index}: <button onclick="adjustFrequency(${index}, -5.0)">-</button> ${freq} MHz <button onclick="adjustFrequency(${index}, 5.0)">+</button><br>`;
+            html += `Hash Rate: <span id='hashrate-${index}'>Loading...</span> MH/s<br>`;
+            if (index % 4 === 0) {
+                html += `Voltage Domain ${domain}: <span id='voltage-${domain}'>Loading...</span> V<br>`;
+            }
+            html += `</div>`;
+        });
+        $('#frequencies').html(html);
+    }).fail(function(response) {
+        $('#status').text(response.responseJSON.error || 'Failed to fetch frequencies.');
+    });
+}
+
+function updateStats() {
+    $.get(`${host}/stats`, function(data) {
+        data.hashrates.forEach((rate, index) => {
+            $(`#hashrate-${index}`).text(rate);
+        });
+        data.voltages.forEach((voltage, index) => {
+            $(`#voltage-${index + 1}`).text(voltage.toFixed(2));
+        });
+    });
+}
+
+function adjustFrequency(asicId, change) {
+    $.get(`${host}/clocks`, function(data) {
+        let newFreq = data[asicId] + change;
+        $.ajax({
+            url: `${host}/clock/${asicId}`,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({frequency: newFreq}),
+            success: function(response) {
+                if (response.error) {
+                    $('#status').text(response.error);
+                } else {
+                    $('#status').text('Frequency updated successfully.');
+                    fetchFrequencies();  // Refresh the frequencies display
+                }
+            },
+            error: function(response) {
+                $('#status').text(response.responseJSON.error || 'Error updating frequency.');
+            }
+        });
+    });
+}
+
+$(document).ready(function() {
+    fetchFrequencies();
+    setInterval(updateStats, 1000); // Update stats every second
+});
+</script>
+</body>
+</html>
