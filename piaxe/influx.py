@@ -57,11 +57,20 @@ class Influx:
         self.tz = pytz.timezone(config['timezone'])
         self.stats = stats
         self.stop_event = threading.Event()
+        self.callbacks = []
         self.connect()
+
+    def add_stats_callback(self, callback):
+        """Registers a callback function."""
+        self.callbacks.append(callback)
 
     def start(self):
         self.submit_thread = threading.Thread(target=self._submit_thread)
         self.submit_thread.start()
+
+    def shutdown(self):
+        self.stop_event.set()
+        self.submit_thread.join()
 
     def _submit_thread(self):
         while not self.stop_event.is_set():
@@ -93,6 +102,9 @@ class Influx:
                     .field("blocks_found", int(self.stats.blocks_found)) \
                     .field("difficulty", int(self.stats.difficulty)) \
                     .field("duplicate_hashes", int(self.stats.duplicate_hashes))
+
+            for callback in self.callbacks:
+                callback(point)
 
             try:
                 write_api = self.client.write_api(write_options=SYNCHRONOUS)

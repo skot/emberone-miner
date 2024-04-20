@@ -39,6 +39,7 @@ from . import bm1366
 from . import influx
 from . import discord
 from . import rest
+from . import smartplug
 
 try:
     from .ssd1306 import SSD1306
@@ -514,10 +515,17 @@ class BM1366Miner:
     def shutdown(self):
         # signal the threads to end
         self.stop_event.set()
-        self.influx.stop_event.set()
+
+        # stop influx
+        if self.influx:
+            self.influx.shutdown()
+
+        # stop smartplug
+        if self.smartplug:
+            self.smartplug.shutdown()
 
         # join all threads
-        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.display_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread, self.influx.submit_thread]:
+        for t in [self.job_thread, self.receive_thread, self.temp_thread, self.display_thread, self.led_thread, self.uptime_counter_thread, self.alerter_thread]:
             if t is not None:
                 t.join(5)
 
@@ -600,6 +608,16 @@ class BM1366Miner:
 
             # start writing thread after values were loaded
             self.influx.start()
+
+        smartplug_config = self.config.get('smartplug', None)
+        self.smartplug = None
+        if smartplug_config is not None and smartplug_config.get('enabled', False):
+            if not self.influx:
+                logging.error("influx not enabled, skipping smartplug module")
+
+            self.smartplug = smartplug.Tasmota(smartplug_config)
+            self.influx.add_stats_callback(self.smartplug.add_smart_plug_energy_data)
+            self.smartplug.start()
 
         alerter_config = self.config.get("alerter", None)
         self.alerter_thread = None

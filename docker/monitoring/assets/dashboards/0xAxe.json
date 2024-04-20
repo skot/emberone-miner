@@ -507,7 +507,7 @@
             "type": "influxdb",
             "uid": "${DS_INFLUXDB}"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"smart_plug_energy\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> last()  \n  ",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> last()  \n  ",
           "refId": "A"
         }
       ],
@@ -579,7 +579,7 @@
             "type": "influxdb",
             "uid": "${DS_INFLUXDB}"
           },
-          "query": "// Define the time range and bucket\ntimeRange = -5m\nbucketName = \"piaxe\"\n\n// Query and aggregate power from the smart plug data\npower = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"smart_plug_energy\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last)  // Adjust 'every' to match your data frequency\n\n// Query and aggregate hashing speed from the network stats data\nhashingSpeed = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last)  // Use the same 'every' as used for power\n\n// Join the two streams on the time columns\njoinedData = join(\n  tables: {power: power, hashingSpeed: hashingSpeed},\n  on: [\"_start\", \"_stop\", \"_time\"],  // Join on window start, stop, and time\n  method: \"inner\"\n)\n\n// Calculate the ratio of hashing speed to power\nresult = joinedData\n  |> map(fn: (r) => ({\n      _time: r._time,\n      ratio: r._value_hashingSpeed / r._value_power\n    })\n  )\n\n// Output the result\nresult\n",
+          "query": "// Define the time range and bucket\ntimeRange = -5m\nbucketName = \"piaxe\"\n\n// Query and aggregate power from the smart plug data\npower = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last)  // Adjust 'every' to match your data frequency\n\n// Query and aggregate hashing speed from the network stats data\nhashingSpeed = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last)  // Use the same 'every' as used for power\n\n// Join the two streams on the time columns\njoinedData = join(\n  tables: {power: power, hashingSpeed: hashingSpeed},\n  on: [\"_start\", \"_stop\", \"_time\"],  // Join on window start, stop, and time\n  method: \"inner\"\n)\n\n// Calculate the ratio of hashing speed to power\nresult = joinedData\n  |> map(fn: (r) => ({\n      _time: r._time,\n      ratio: r._value_hashingSpeed / r._value_power\n    })\n  )\n\n// Output the result\nresult\n",
           "refId": "A"
         }
       ],
@@ -1041,7 +1041,7 @@
             "type": "influxdb",
             "uid": "${DS_INFLUXDB}"
           },
-          "query": "// Define the time range and bucket\ntimeRange = v.timeRangeStart\nbucketName = \"piaxe\"\n\n// Query for power and hashing speed, and calculate the ratio\npowerQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"smart_plug_energy\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)  // Generate consistent data points over time\n\nhashingSpeedQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)\n\n// Calculate ratio and map it\nresult = join(\n  tables: {power: powerQuery, hashingSpeed: hashingSpeedQuery},\n  on: [\"_time\"],\n  method: \"inner\"\n)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      ratio: r._value_hashingSpeed / r._value_power\n    })\n  )\n\n// Output the result for visualization\nresult\n",
+          "query": "// Define the time range and bucket\ntimeRange = v.timeRangeStart\nbucketName = \"piaxe\"\n\n// Query for power and hashing speed, and calculate the ratio\npowerQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)  // Generate consistent data points over time\n\nhashingSpeedQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)\n\n// Calculate ratio and map it\nresult = join(\n  tables: {power: powerQuery, hashingSpeed: hashingSpeedQuery},\n  on: [\"_time\"],\n  method: \"inner\"\n)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      ratio: r._value_hashingSpeed / r._value_power\n    })\n  )\n\n// Output the result for visualization\nresult\n",
           "refId": "A"
         },
         {
@@ -1050,7 +1050,7 @@
             "uid": "${DS_INFLUXDB}"
           },
           "hide": false,
-          "query": "// Define the time range and bucket\ntimeRange = v.timeRangeStart\nbucketName = \"piaxe\"\n\n// Query for power and hashing speed, and calculate the ratio\npowerQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"smart_plug_energy\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)  // Generate consistent data points over time\n\nhashingSpeedQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)\n\n// Calculate ratio and map it\nresult = join(\n  tables: {power: powerQuery, hashingSpeed: hashingSpeedQuery},\n  on: [\"_time\"],\n  method: \"inner\"\n)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      _value: r._value_hashingSpeed / r._value_power\n    })\n  )\n  |> aggregateWindow(every: 25m, fn: mean)\n\n// Output the result for visualization\nresult\n",
+          "query": "// Define the time range and bucket\ntimeRange = v.timeRangeStart\nbucketName = \"piaxe\"\n\n// Query for power and hashing speed, and calculate the ratio\npowerQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)  // Generate consistent data points over time\n\nhashingSpeedQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)\n\n// Calculate ratio and map it\nresult = join(\n  tables: {power: powerQuery, hashingSpeed: hashingSpeedQuery},\n  on: [\"_time\"],\n  method: \"inner\"\n)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      _value: r._value_hashingSpeed / r._value_power\n    })\n  )\n  |> aggregateWindow(every: 25m, fn: mean)\n\n// Output the result for visualization\nresult\n",
           "refId": "B"
         }
       ],
@@ -1356,7 +1356,7 @@
             "type": "influxdb",
             "uid": "${DS_INFLUXDB}"
           },
-          "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"smart_plug_energy\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 5s, fn: mean) \n",
+          "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 5s, fn: mean) \n",
           "refId": "A"
         }
       ],
@@ -1404,13 +1404,13 @@
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "0xAxe Miner",
+  "title": "Flex4Axe Miner",
   "uid": "dd418553-e880-45b3-87af-f6fdee7959c2",
-  "version": 17,
+  "version": 18,
   "weekStart": ""
 }

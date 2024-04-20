@@ -80,10 +80,17 @@ influx:
   bucket: piaxe
   timezone: Europe/Berlin
 
+# for Refoss Tasmota
+smartplug:
+  enabled: true
+  # URL of smart plug data
+  url: http://192.168.0.166/cm?cmnd=Status%208
+
 i2c_display:
   enabled: false
 
 rest_api:
-  enabled: true
+  enabled: false
   host: 127.0.0.1
   port: 5000
+
