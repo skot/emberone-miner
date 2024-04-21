@@ -4,15 +4,20 @@ import logging
 import random
 
 class ASICFrequencyManager:
-    def __init__(self, config, asics):
+    def __init__(self, config, miner):
+        self.miner = miner
+        self.hardware = miner.hardware
+        self.asics = miner.asics
         self.app = Flask(__name__)
-        self.cm = asics.clock_manager
+        self.cm = self.asics.clock_manager
         self.config = config
 
         # Define routes
         self.app.add_url_rule('/clocks', 'get', self.get_clocks, methods=['GET'])
         self.app.add_url_rule('/clock/<int:id>', 'set', self.set_clock, methods=['POST'])
         self.app.add_url_rule('/stats', 'get_stats', self.get_stats, methods=['GET'])
+        self.app.add_url_rule('/pwm/<int:id>/set', 'set_pwm', self.set_pwm, methods=['POST'])  # Updated to accept variable PWM ID
+
 
         # Route to serve the index.html
         self.app.add_url_rule('/', 'root', self.root)
@@ -45,6 +50,18 @@ class ASICFrequencyManager:
             logging.error(e)
             return jsonify({"error": f"Error setting clock to {new_frequency}"}), 400
         return jsonify({"success": True, "frequency": new_frequency})
+
+    def set_pwm(self, id):
+        pwm_value = float(request.json.get('pwm_value'))
+        if 0.0 <= pwm_value <= 1.0:
+            try:
+                self.hardware.set_fan_speed(pwm_value)
+                return jsonify({"success": True, "pwm_value": pwm_value, "channel_id": id})
+            except Exception as e:
+                logging.error(e)
+                return jsonify({"error": f"Error setting PWM value for channel {id}"}), 400
+        else:
+            return jsonify({"error": f"Invalid PWM value for channel {id}. Must be between 0.0 and 1.0"}), 400
 
     def run(self):
         host = self.config.get("host", "127.0.0.1")
