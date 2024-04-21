@@ -497,7 +497,8 @@ class BM1368(BM1366):
             self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x82, 0xAA])
             time.sleep(0.500)
 
-        self.do_frequency_ramp_up(frequency)
+        self.clock_manager = ClockManager(self, frequency, chip_counter)
+        self.clock_manager.do_frequency_ramp_up(frequency)
 
         # change baud
         #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
