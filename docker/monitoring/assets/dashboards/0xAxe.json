@@ -1,47 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_INFLUXDB",
-      "label": "influxdb",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    }
-  ],
-  "__elements": {},
-  "__requires": [
-    {
-      "type": "panel",
-      "id": "gauge",
-      "name": "Gauge",
-      "version": ""
-    },
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "10.2.3"
-    },
-    {
-      "type": "datasource",
-      "id": "influxdb",
-      "name": "InfluxDB",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "stat",
-      "name": "Stat",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -61,14 +18,14 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 3,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -123,7 +80,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> last()  \n",
           "refId": "A"
@@ -135,7 +92,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -191,7 +148,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -1y)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_uptime\")\n  |> last()\n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_time: r._time, _value: uptime_formatted})\n  })",
@@ -204,7 +161,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -309,7 +266,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"uptime\")\n  |> last()  \n  |> map(fn: (r) => {\n      uptime_seconds = r._value\n      days = uptime_seconds / 86400\n      hours = (uptime_seconds % 86400) / 3600\n      minutes = (uptime_seconds % 3600) / 60\n      uptime_formatted = \"${days}d ${hours}h ${minutes}m\"\n      return ({_field: \"Uptime\", _time: r._time, _value: uptime_formatted})\n  })\n",
@@ -318,7 +275,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"best_difficulty\")\n  |> last()  \n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _field: \"Best Difficulty\",\n        _value: string(v: number) + suffix\n      })\n  })\n",
@@ -327,7 +284,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"accepted\")\n  |> last()  \n  ",
           "refId": "A"
@@ -335,7 +292,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"not_accepted\")\n  |> last()  \n  ",
@@ -344,7 +301,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"pool_errors\")\n  |> last()  \n  \n\n\n  ",
@@ -373,7 +330,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "description": "",
       "fieldConfig": {
@@ -433,7 +390,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n  |> last()  \n  ",
           "refId": "A"
@@ -445,7 +402,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "description": "",
       "fieldConfig": {
@@ -505,7 +462,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -5m)  // Adjust the time range as needed\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> last()  \n  ",
           "refId": "A"
@@ -517,7 +474,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "description": "",
       "fieldConfig": {
@@ -577,7 +534,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "// Define the time range and bucket\ntimeRange = -5m\nbucketName = \"piaxe\"\n\n// Query and aggregate power from the smart plug data\npower = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last)  // Adjust 'every' to match your data frequency\n\n// Query and aggregate hashing speed from the network stats data\nhashingSpeed = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last)  // Use the same 'every' as used for power\n\n// Join the two streams on the time columns\njoinedData = join(\n  tables: {power: power, hashingSpeed: hashingSpeed},\n  on: [\"_start\", \"_stop\", \"_time\"],  // Join on window start, stop, and time\n  method: \"inner\"\n)\n\n// Calculate the ratio of hashing speed to power\nresult = joinedData\n  |> map(fn: (r) => ({\n      _time: r._time,\n      ratio: r._value_hashingSpeed / r._value_power\n    })\n  )\n\n// Output the result\nresult\n",
           "refId": "A"
@@ -589,7 +546,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -647,7 +604,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "import \"math\"\nfrom(bucket: \"piaxe\")\n  |> range(start: -1y)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_best_difficulty\")\n  |> last()  \n  |> map(fn: (r) => {\n      suffix = if r._value >= 1000000000000.0 then \"T\"\n               else if r._value >= 1000000000.0 then \"G\"\n               else if r._value >= 1000000.0 then \"M\"\n               else if r._value >= 1000.0 then \"k\"\n               else \"\"    \n      scaled = if r._value >= 1000000000000.0 then r._value / 1000000000000.0\n                else if r._value >= 1000000000.0 then r._value / 1000000000.0\n                else if r._value >= 1000000.0 then r._value / 1000000.0\n                else if r._value >= 1000.0 then r._value / 1000.0\n                else r._value\n      \n      number = math.trunc(x: scaled * 100.0) / 100.0\n      return ({\n        _time: r._time, \n        _value: string(v: number) + suffix\n      })\n  })\n",
           "refId": "A"
@@ -659,7 +616,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "description": "",
       "fieldConfig": {
@@ -712,7 +669,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: -1y)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"total_blocks_found\")\n  |> last()  \n  |> map(fn: (r) => {\n      emoji = if r._value == 0 then \"🥹\" else \"🥳\"\n      return ({_field: r._field, _time: r._time, _value: string(v: r._value) + emoji})\n  })\n",
           "refId": "A"
@@ -724,7 +681,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -807,7 +764,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 5s, fn: mean) \n",
           "refId": "A"
@@ -815,7 +772,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 25m, fn: mean) \n",
@@ -828,7 +785,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -916,7 +873,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature\")\n|> aggregateWindow(every: 1m, fn: mean) ",
           "refId": "A"
@@ -924,7 +881,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature2\")\n|> aggregateWindow(every: 1m, fn: mean) ",
@@ -933,7 +890,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature3\")\n|> aggregateWindow(every: 1m, fn: mean) ",
@@ -942,7 +899,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature4\")\n|> aggregateWindow(every: 1m, fn: mean) ",
@@ -955,7 +912,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -1039,7 +996,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "// Define the time range and bucket\ntimeRange = v.timeRangeStart\nbucketName = \"piaxe\"\n\n// Query for power and hashing speed, and calculate the ratio\npowerQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)  // Generate consistent data points over time\n\nhashingSpeedQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)\n\n// Calculate ratio and map it\nresult = join(\n  tables: {power: powerQuery, hashingSpeed: hashingSpeedQuery},\n  on: [\"_time\"],\n  method: \"inner\"\n)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      ratio: r._value_hashingSpeed / r._value_power\n    })\n  )\n\n// Output the result for visualization\nresult\n",
           "refId": "A"
@@ -1047,7 +1004,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "// Define the time range and bucket\ntimeRange = v.timeRangeStart\nbucketName = \"piaxe\"\n\n// Query for power and hashing speed, and calculate the ratio\npowerQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)  // Generate consistent data points over time\n\nhashingSpeedQuery = from(bucket: bucketName)\n  |> range(start: timeRange)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")  // Adjust your measurement name\n  |> filter(fn: (r) => r[\"_field\"] == \"hashing_speed\")\n  |> aggregateWindow(every: 1m, fn: last, createEmpty: false)\n\n// Calculate ratio and map it\nresult = join(\n  tables: {power: powerQuery, hashingSpeed: hashingSpeedQuery},\n  on: [\"_time\"],\n  method: \"inner\"\n)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      _value: r._value_hashingSpeed / r._value_power\n    })\n  )\n  |> aggregateWindow(every: 25m, fn: mean)\n\n// Output the result for visualization\nresult\n",
@@ -1060,7 +1017,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -1138,7 +1095,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"vdomain1\")\n|> aggregateWindow(every: 1m, fn: mean) ",
@@ -1147,7 +1104,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"vdomain2\")\n|> aggregateWindow(every: 1m, fn: mean) ",
@@ -1156,7 +1113,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"vdomain3\")\n|> aggregateWindow(every: 1m, fn: mean) ",
@@ -1165,7 +1122,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "hide": false,
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"vdomain4\")\n|> aggregateWindow(every: 1m, fn: mean) ",
@@ -1178,7 +1135,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -1258,7 +1215,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"pool_errors\")\n  |> difference()\n  ",
           "refId": "A"
@@ -1270,7 +1227,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
       },
       "fieldConfig": {
         "defaults": {
@@ -1354,7 +1311,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "f79a7dc2-e573-47cc-a345-892d52f5f3d5"
           },
           "query": "from(bucket: \"piaxe\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"${network}_stats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"power\")\n  |> aggregateWindow(every: 5s, fn: mean) \n",
           "refId": "A"
@@ -1404,13 +1361,13 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "0xAxe Miner",
   "uid": "dd418553-e880-45b3-87af-f6fdee7959c2",
-  "version": 18,
+  "version": 19,
   "weekStart": ""
 }
