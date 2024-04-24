@@ -1,5 +1,5 @@
 debug_bm1366: true
-verify_solo: true
+verify_solo: false
 miner: piaxe
 suggest_difficulty: 2048
 
@@ -82,7 +82,7 @@ influx:
 
 # for Refoss Tasmota
 smartplug:
-  enabled: true
+  enabled: false
   # URL of smart plug data
   url: http://192.168.0.166/cm?cmnd=Status%208
 

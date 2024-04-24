@@ -1,4 +1,7 @@
-from flask import Flask, request, jsonify, send_from_directory
+try:
+    from flask import Flask, request, jsonify, send_from_directory
+except:
+    pass
 import threading
 import logging
 import random
