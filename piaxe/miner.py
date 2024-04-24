@@ -1,10 +1,4 @@
-# piaxe
-try:
-    import RPi.GPIO as GPIO
-    from rpi_hardware_pwm import HardwarePWM
-    import smbus
-except:
-    pass
+
 
 import serial
 import time
@@ -16,21 +10,6 @@ import math
 import yaml
 import json
 
-# qaxe
-try:
-    from . import coms_pb2
-    import binascii
-except:
-    pass
-
-# bitcrane
-try:
-    import pyftdi.serialext
-    from pyftdi.gpio import GpioSyncController
-    from pyftdi.i2c import I2cController, I2cIOError
-except:
-    pass
-
 import threading
 from shared import shared
 
@@ -40,6 +19,12 @@ from . import influx
 from . import discord
 from . import rest
 from . import smartplug
+
+from .boards import piaxe
+from .boards import qaxe
+from .boards import bitcrane
+from .boards import flex4axe
+from .boards import zeroxaxe
 
 try:
     from .ssd1306 import SSD1306
@@ -62,405 +47,6 @@ class Job(shared.Job):
         max_nonce=0x7fffffff,
     ):
         super().__init__(job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime, extranonce1, extranonce2_size, max_nonce)
-
-
-class Board:
-    def set_fan_speed(self, speed):
-        raise NotImplementedError
-
-    def read_temperature(self):
-        raise NotImplementedError
-
-    def set_led(self, state):
-        raise NotImplementedError
-
-    def reset_func(self, state):
-        raise NotImplementedError
-
-    def shutdown(self):
-        raise NotImplementedError
-
-    def serial_port(self):
-        raise NotImplementedError
-
-    def get_asic_frequency(self):
-        return self.config['asic_frequency']
-
-    def get_name(self):
-        return self.config['name']
-
-    def get_chip_count(self):
-        return self.config['chips']
-
-
-class RPiHardware(Board):
-    def __init__(self, config):
-        # Setup GPIO
-        GPIO.setmode(GPIO.BOARD)  # Use Physical pin numbering
-
-        # Load settings from config
-        self.config = config
-        self.sdn_pin = self.config['sdn_pin']
-        self.pgood_pin = self.config['pgood_pin']
-        self.nrst_pin = self.config['nrst_pin']
-        self.led_pin = self.config['led_pin']
-        self.lm75_address = self.config['lm75_address']
-
-        # Initialize GPIO Pins
-        GPIO.setup(self.sdn_pin, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(self.pgood_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(self.nrst_pin, GPIO.OUT, initial=GPIO.HIGH)
-        GPIO.setup(self.led_pin, GPIO.OUT, initial=GPIO.LOW)
-
-        # Create an SMBus instance
-        self._bus = smbus.SMBus(1)  # 1 indicates /dev/i2c-1
-
-        pwm = HardwarePWM(pwm_channel=0, hz=self.config['pwm_hz'])
-        pwm.start(self.config['pwm_duty_cycle'])
-
-        # Initialize serial communication
-        self._serial_port = serial.Serial(
-            port=self.config['serial_port'],  # For GPIO serial communication use /dev/ttyS0
-            baudrate=115200,    # Set baud rate to 115200
-            bytesize=serial.EIGHTBITS,     # Number of data bits
-            parity=serial.PARITY_NONE,     # No parity
-            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
-            timeout=1                      # Set a read timeout
-        )
-
-        GPIO.output(self.sdn_pin, True)
-
-        while (not self._is_power_good()):
-            print("power not good ... waiting ...")
-            time.sleep(1)
-
-    def _is_power_good(self):
-        return GPIO.input(self.pgood_pin)
-
-    def set_fan_speed(self, speed):
-        pass
-
-    def read_temperature_and_voltage(self):
-        data = self._bus.read_i2c_block_data(self.lm75_address, 0, 2)
-        # Convert the data to 12-bits
-        temp = (data[0] << 4) | (data[1] >> 4)
-        # Convert to a signed 12-bit value
-        if temp > 2047:
-            temp -= 4096
-
-        # Convert to Celsius
-        celsius = temp * 0.0625
-        return {
-            "temp": [celsius, 0, 0, 0],
-            "voltage": [0, 0, 0, 0],
-        }
-
-    def set_led(self, state):
-        GPIO.output(self.led_pin, True if state else False)
-
-    def reset_func(self, state):
-        GPIO.output(self.nrst_pin, True if state else False)
-
-    def shutdown(self):
-        # disable buck converter
-        logging.info("shutdown miner ...")
-        GPIO.output(self.sdn_pin, False)
-        self.set_led(False)
-
-    def serial_port(self):
-        return self._serial_port
-
-
-
-class BitcraneHardware(Board):
-    TMP75_ADDRESSES = [ 0x48, 0x4C ]
-    EMC2305_ADDRESS = 0x4D
-    FAN_PWM_REGISTERS = [0x30, 0x40, 0x50, 0x60, 0x70]
-
-    def __init__(self, config):
-        self.config = config
-
-        i2c = I2cController()
-        i2c.configure('ftdi://ftdi:4232/2',
-                      frequency=100000,
-                      clockstretching=False,
-                      debug=True)
-        self.rst_plug_gpio = i2c.get_gpio()
-        self.rst_plug_gpio.set_direction(0x30, 0x30)
-        self.temp_sensors = []
-        for address in BitcraneHardware.TMP75_ADDRESSES:
-            self.temp_sensors.append(i2c.get_port(address))
-
-        self.fan_controller = i2c.get_port(BitcraneHardware.EMC2305_ADDRESS)
-
-        # Initialize serial communication
-        self._serial_port = pyftdi.serialext.serial_for_url('ftdi://ftdi:4232/1',
-                                                            baudrate=115200,
-                                                            timeout=1)
-
-        self.set_fan_speed(config['fan_speed'])
-
-    def set_fan_speed(self, percent):
-        pwm_value = int(255 * percent)
-        for fan_reg in BitcraneHardware.FAN_PWM_REGISTERS:
-            self.fan_controller.write_to(fan_reg, [pwm_value])
-        print(f"Set fan to {percent * 100}% speed.")
-
-    def read_temperature_and_voltage(self):
-        highest_temp = 0
-        for sensor in self.temp_sensors:
-            temp = sensor.read_from(0x00, 2)
-            if highest_temp < temp[0]:
-                highest_temp = temp[0]
-
-        return {
-            "temp": [highest_temp + 5, 0, 0, 0],
-            "voltage": [0, 0, 0, 0],
-        }
-
-    def set_led(self, state):
-        pass
-
-    def reset_func(self, state):
-        if state:
-            self.rst_plug_gpio.write(0x00)
-        else:
-            self.rst_plug_gpio.write(0x30)
-
-    def shutdown(self):
-        # disable buck converter
-        logging.info("shutdown miner ...")
-        self.reset_func(True)
-
-    def serial_port(self):
-        return self._serial_port
-
-
-class QaxeHardware(Board):
-    def __init__(self, config):
-        # Load settings from config
-        self.config = config
-
-        self.state_power = 0;
-        self.pwm1 = self.config.get('fan_speed_1', 100)
-        self.pwm2 = self.config.get('fan_speed_2', 0)
-
-        self.reqid = 0
-        self.serial_port_ctrl_lock = threading.Lock()
-
-        # Initialize serial communication
-        self._serial_port_asic = serial.Serial(
-            port=self.config['serial_port_asic'],  # For GPIO serial communication use /dev/ttyS0
-            baudrate=115200,    # Set baud rate to 115200
-            bytesize=serial.EIGHTBITS,     # Number of data bits
-            parity=serial.PARITY_NONE,     # No parity
-            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
-            timeout=1                      # Set a read timeout
-        )
-
-        # Initialize serial communication
-        self._serial_port_ctrl = serial.Serial(
-            port=self.config['serial_port_ctrl'],  # For GPIO serial communication use /dev/ttyS0
-            baudrate=115200,    # Set baud rate to 115200
-            bytesize=serial.EIGHTBITS,     # Number of data bits
-            parity=serial.PARITY_NONE,     # No parity
-            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
-            timeout=1                      # Set a read timeout
-        )
-
-        self._switch_power(True)
-
-    def _is_power_good(self):
-        return True
-
-    def set_fan_speed(self, speed):
-        self.pwm1 = speed
-        self._set_state()
-
-    def set_led(self, state):
-        pass
-
-    def _request(self, op, params):
-        request = coms_pb2.QRequest()
-        request.id = self.reqid  # Set a unique ID for the request
-        request.op = op
-
-        if params is not None:
-            request.data = params.SerializeToString()
-        else:
-            request.data = b'0x00'
-        request.data = bytes([len(request.data)]) + request.data
-
-        serialized_request = request.SerializeToString()
-        serialized_request = bytes([len(serialized_request)]) + serialized_request
-
-        logging.debug("-> %s", binascii.hexlify(serialized_request).decode('utf8'))
-
-        self._serial_port_ctrl.write(serialized_request)
-
-        response_len = self._serial_port_ctrl.read()
-        logging.debug(f"rx len: {response_len}")
-        if len(response_len) == 1 and response_len[0] == 0:
-            self.reqid += 1
-            return coms_pb2.QResponse()
-
-        response_data = self._serial_port_ctrl.read(response_len[0])
-
-        logging.debug("<- %s", binascii.hexlify(response_data).decode('utf8'))
-
-        response = coms_pb2.QResponse()
-        response.ParseFromString(response_data)
-
-        if response.id != self.reqid:
-            logging.error(f"request and response IDs mismatch! {response.id} vs {self.reqid}")
-
-        self.reqid += 1
-        return response
-
-    def read_temperature_and_voltage(self):
-        with self.serial_port_ctrl_lock:
-            resp = self._request(2, None)
-            if resp is None or resp.error != 0:
-                raise Exception("failed reading status!")
-
-            status = coms_pb2.QState()
-            status.ParseFromString(resp.data[1:])
-
-            return {
-                "temp": [status.temp1 * 0.0625, status.temp2 * 0.0625, 0, 0],
-                "voltage": [0, 0, 0, 0],
-            }
-
-    def _set_state(self):
-        with self.serial_port_ctrl_lock:
-            qcontrol = coms_pb2.QControl()
-            qcontrol.state_1v2 = self.state
-            qcontrol.pwm1 = int(min(100, self.pwm1 * 100.0))
-            qcontrol.pwm2 = int(min(100, self.pwm2 * 100.0))
-            if self._request(1, qcontrol).error != 0:
-                raise Exception("couldn't switch power!")
-
-    def _switch_power(self, state):
-        self.state = 0 if not state else 1
-        self._set_state()
-
-        time.sleep(5)
-
-    def reset_func(self, dummy):
-        with self.serial_port_ctrl_lock:
-            if self._request(3, None).error != 0:
-                raise Exception("error resetting qaxe!")
-            time.sleep(5)
-
-    def shutdown(self):
-        # disable buck converter
-        logging.info("shutdown miner ...")
-        self._switch_power(False)
-
-    def serial_port(self):
-        return self._serial_port_asic
-
-
-class Flex4AxeHardware(QaxeHardware):
-    def __init__(self, config):
-        # Load settings from config
-        self.config = config
-
-        self.state_power = 0;
-        self.pwm1 = self.config.get('fan_speed_1', 100)
-
-        self.reqid = 0
-        self.serial_port_ctrl_lock = threading.Lock()
-
-        # Initialize serial communication
-        self._serial_port_asic = serial.Serial(
-            port=self.config['serial_port_asic'],  # For GPIO serial communication use /dev/ttyS0
-            baudrate=115200,    # Set baud rate to 115200
-            bytesize=serial.EIGHTBITS,     # Number of data bits
-            parity=serial.PARITY_NONE,     # No parity
-            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
-            timeout=1                      # Set a read timeout
-        )
-
-        # Initialize serial communication
-        self._serial_port_ctrl = serial.Serial(
-            port=self.config['serial_port_ctrl'],  # For GPIO serial communication use /dev/ttyS0
-            baudrate=115200,    # Set baud rate to 115200
-            bytesize=serial.EIGHTBITS,     # Number of data bits
-            parity=serial.PARITY_NONE,     # No parity
-            stopbits=serial.STOPBITS_ONE,  # Number of stop bits
-            timeout=1                      # Set a read timeout
-        )
-
-        self.set_fan_speed(self.pwm1)
-
-        self._switch_power(False)
-        time.sleep(1)
-        self._switch_power(True)
-        time.sleep(1)
-
-
-    def read_temperature_and_voltage(self):
-        with self.serial_port_ctrl_lock:
-            resp = self._request(2, None)
-            if resp is None or resp.error != 0:
-                raise Exception("failed reading status!")
-
-            status = coms_pb2.QState()
-            status.ParseFromString(resp.data[1:])
-
-            return {
-                "temp": [status.temp1 * 0.0625, status.temp2 * 0.0625, status.temp3 * 0.0625, status.temp4 * 0.0625],
-                "voltage": [status.domain1 * 0.95, status.domain2 * 0.95, status.domain3 * 0.95, status.domain4 * 0.95],
-            }
-
-    def _set_state(self):
-        with self.serial_port_ctrl_lock:
-            qcontrol = coms_pb2.QControl()
-            qcontrol.pwm1 = int(min(100, self.pwm1 * 100.0))
-            if self._request(1, qcontrol).error != 0:
-                raise Exception("couldn't switch power!")
-
-    def _switch_power(self, state):
-        if state:
-            self.power_on()
-        else:
-            self.shutdown()
-
-        time.sleep(1)
-
-    def reset_func(self, dummy):
-        # reset generated by the stm32 on power on
-        pass
-
-    def power_on(self):
-        with self.serial_port_ctrl_lock:
-            if self._request(5, None).error != 0:
-                raise Exception("error powering on qaxe!")
-            time.sleep(5)
-
-    def shutdown(self):
-        with self.serial_port_ctrl_lock:
-            if self._request(4, None).error != 0:
-                raise Exception("error shutting down qaxe!")
-            time.sleep(5)
-
-
-class ZeroxAxe(Flex4AxeHardware):
-    def __init__(self, config):
-        super().__init__(config)
-
-    def read_temperature_and_voltage(self):
-        data = super().read_temperature_and_voltage()
-        # for simpler board layout the voltage domains are reversed but the firmware is the
-        # same as the flex4 to not have another firmware
-        data['voltage'].reverse()
-
-        for i in range(0, 4):
-            # don't ask ... :weird-smiley-guy:
-            data['voltage'][i] *= 1.02568560
-
-        return data
 
 
 class BM1366Miner:
@@ -539,22 +125,22 @@ class BM1366Miner:
 
     def init(self):
         if self.miner == 'bitcrane':
-            self.hardware = BitcraneHardware(self.config[self.miner])
+            self.hardware = bitcrane.BitcraneHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
         if self.miner == 'piaxe':
-            self.hardware = RPiHardware(self.config[self.miner])
+            self.hardware = piaxe.RPiHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
         elif self.miner == "qaxe":
-            self.hardware = QaxeHardware(self.config[self.miner])
+            self.hardware = qaxe.QaxeHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
         elif self.miner == "qaxe+":
-            self.hardware = QaxeHardware(self.config[self.miner])
+            self.hardware = qaxe.QaxeHardware(self.config[self.miner])
             self.asics = bm1366.BM1368()
         elif self.miner == "flex4axe":
-            self.hardware = Flex4AxeHardware(self.config[self.miner])
+            self.hardware = flex4axe.Flex4AxeHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
         elif self.miner == "0xaxe":
-            self.hardware = ZeroxAxe(self.config[self.miner])
+            self.hardware = zeroxaxe.ZeroxAxe(self.config[self.miner])
             self.asics = bm1366.BM1366()
         else:
             raise Exception('unknown miner: %s', self.miner)

@@ -55,7 +55,7 @@ class ASICFrequencyManager:
         pwm_value = float(request.json.get('pwm_value'))
         if 0.0 <= pwm_value <= 1.0:
             try:
-                self.hardware.set_fan_speed(pwm_value)
+                self.hardware.set_fan_speed(id-1, pwm_value)
                 return jsonify({"success": True, "pwm_value": pwm_value, "channel_id": id})
             except Exception as e:
                 logging.error(e)
