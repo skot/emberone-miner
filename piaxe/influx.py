@@ -80,14 +80,14 @@ class Influx:
 
             with self.stats.lock:
                 point = Point(f"{ self.stats_name }").time(datetime.now(self.tz), WritePrecision.NS) \
-                    .field("temperature", float(self.stats.temp)) \
-                    .field("temperature2", float(self.stats.temp2)) \
-                    .field("temperature3", float(self.stats.temp3)) \
-                    .field("temperature4", float(self.stats.temp4)) \
-                    .field("vdomain1", float(self.stats.vdomain1)) \
-                    .field("vdomain2", float(self.stats.vdomain2)) \
-                    .field("vdomain3", float(self.stats.vdomain3)) \
-                    .field("vdomain4", float(self.stats.vdomain4)) \
+                    .field("temperature", float(self.stats.temp or 0.0)) \
+                    .field("temperature2", float(self.stats.temp2 or 0.0)) \
+                    .field("temperature3", float(self.stats.temp3 or 0.0)) \
+                    .field("temperature4", float(self.stats.temp4 or 0.0)) \
+                    .field("vdomain1", float(self.stats.vdomain1 or 0.0)) \
+                    .field("vdomain2", float(self.stats.vdomain2 or 0.0)) \
+                    .field("vdomain3", float(self.stats.vdomain3 or 0.0)) \
+                    .field("vdomain4", float(self.stats.vdomain4 or 0.0)) \
                     .field("hashing_speed", float(self.stats.hashing_speed)) \
                     .field("invalid_shares", int(self.stats.invalid_shares)) \
                     .field("valid_shares", int(self.stats.valid_shares)) \
