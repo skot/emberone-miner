@@ -1,4 +1,8 @@
 # piaxe
+import logging
+import serial
+import time
+
 try:
     import RPi.GPIO as GPIO
     from rpi_hardware_pwm import HardwarePWM
@@ -66,8 +70,8 @@ class RPiHardware(board.Board):
         # Convert to Celsius
         celsius = temp * 0.0625
         return {
-            "temp": [celsius, 0, 0, 0],
-            "voltage": [0, 0, 0, 0],
+            "temp": [celsius, None, None, None],
+            "voltage": [None, None, None, None],
         }
 
     def set_led(self, state):

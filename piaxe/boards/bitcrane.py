@@ -51,8 +51,8 @@ class BitcraneHardware(board.Board):
                 highest_temp = temp[0]
 
         return {
-            "temp": [highest_temp + 5, 0, 0, 0],
-            "voltage": [0, 0, 0, 0],
+            "temp": [highest_temp + 5, None, None, None],
+            "voltage": [None, None, None, None],
         }
 
     def set_led(self, state):

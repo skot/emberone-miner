@@ -105,8 +105,8 @@ class QaxeHardware(board.Board):
             status.ParseFromString(resp.data[1:])
 
             return {
-                "temp": [status.temp1 * 0.0625, status.temp2 * 0.0625, 0, 0],
-                "voltage": [0, 0, 0, 0],
+                "temp": [status.temp1 * 0.0625, status.temp2 * 0.0625, None, None],
+                "voltage": [None, None, None, None],
             }
 
     def _set_state(self):
