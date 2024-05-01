@@ -444,8 +444,9 @@ class BM1368(BM1366):
         return (job_id & 0xf0) >> 1
 
     def get_job_id(self, job_id):
-        valid_ids=[0x18, 0x30, 0x48, 0x60, 0x78, 0x90, 0x28, 0x40, 0x58, 0x70, 0x88, 0x20, 0x38, 0x50, 0x68]
-        return valid_ids[job_id % len(valid_ids)]
+        # job-IDs: 00, 18, 30, 48, 60, 78, 10, 28, 40, 58, 70, 08, 20, 38, 50, 68
+        return (job_id * 24) & 0x7f
+
 
     def send_init(self, frequency, expected, chips_enabled = None):
         # enable and set version rolling mask to 0xFFFF
