@@ -124,8 +124,9 @@ class QaxeHardware(board.Board):
 
         time.sleep(5)
 
-    def reset_func(self, dummy):
+    def reset_func(self):
         with self.serial_port_ctrl_lock:
+            # cmd reset
             if self._request(3, None).error != 0:
                 raise Exception("error resetting qaxe!")
             time.sleep(5)
@@ -133,7 +134,10 @@ class QaxeHardware(board.Board):
     def shutdown(self):
         # disable buck converter
         logging.info("shutdown miner ...")
-        self._switch_power(False)
+        with self.serial_port_ctrl_lock:
+            # cmd shutdown
+            if self._request(4, None).error != 0:
+                raise Exception("error resetting qaxe!")
 
     def serial_port(self):
         return self._serial_port_asic

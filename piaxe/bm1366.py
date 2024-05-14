@@ -257,7 +257,7 @@ class BM1366:
 
         chip_counter = 0
         while True:
-            data = self.serial_rx_func(11, 1000)
+            data = self.serial_rx_func(11, 5000)
 
             if data is None:
                 break
@@ -328,10 +328,7 @@ class BM1366:
         self.send(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
 
     def reset(self):
-        self.reset_func(True)
-        time.sleep(0.5)
-        self.reset_func(False)
-        time.sleep(0.5)
+        self.reset_func()
 
     def init(self, frequency, expected, chips_enabled = None):
         logging.info("Initializing BM1366")
@@ -447,9 +444,18 @@ class BM1368(BM1366):
         # job-IDs: 00, 18, 30, 48, 60, 78, 10, 28, 40, 58, 70, 08, 20, 38, 50, 68
         return (job_id * 24) & 0x7f
 
+    def clear_serial_buffer(self):
+        while True:
+            data = self.serial_rx_func(11, 5000)
+            if data is None:
+                return
 
     def send_init(self, frequency, expected, chips_enabled = None):
+        self.clear_serial_buffer()
+
         # enable and set version rolling mask to 0xFFFF
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        # enable and set version rolling mask to 0xFFFF again
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
         # enable and set version rolling mask to 0xFFFF again
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
@@ -503,7 +509,7 @@ class BM1368(BM1366):
 
         # change baud
         #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x10, 0x00, 0x00, 0x15, 0x1c])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x10, 0x00, 0x00, 0x15, 0xa4])
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
 
         return chip_counter

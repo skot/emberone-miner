@@ -1,4 +1,6 @@
 import logging
+import time
+
 
 try:
     import pyftdi.serialext
@@ -59,10 +61,10 @@ class BitcraneHardware(board.Board):
         pass
 
     def reset_func(self, state):
-        if state:
-            self.rst_plug_gpio.write(0x00)
-        else:
-            self.rst_plug_gpio.write(0x30)
+        self.rst_plug_gpio.write(0x00)
+        time.sleep(0.5)
+        self.rst_plug_gpio.write(0x30)
+        time.sleep(0.5)
 
     def shutdown(self):
         # disable buck converter

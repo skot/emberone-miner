@@ -77,8 +77,12 @@ class RPiHardware(board.Board):
     def set_led(self, state):
         GPIO.output(self.led_pin, True if state else False)
 
-    def reset_func(self, state):
-        GPIO.output(self.nrst_pin, True if state else False)
+    def reset_func(self):
+        GPIO.output(self.nrst_pin, True)
+        time.sleep(0.5)
+        GPIO.output(self.nrst_pin, False)
+        time.sleep(0.5)
+
 
     def shutdown(self):
         # disable buck converter
