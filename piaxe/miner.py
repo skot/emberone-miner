@@ -155,8 +155,22 @@ class BM1366Miner:
         # default is: enable all chips
         chips_enabled = self.config[self.miner].get('chips_enabled', None)
 
-        chip_counter = self.asics.init(self.hardware.get_asic_frequency(), self.hardware.get_chip_count(), chips_enabled)
 
+        max_retries = 5  # Maximum number of attempts
+
+        # currently the qaxe+ needs this loop :see-no-evil:
+        for attempt in range(max_retries):
+            try:
+                chip_counter = self.asics.init(self.hardware.get_asic_frequency(), self.hardware.get_chip_count(), chips_enabled)
+                print("Initialization successful.")
+                break
+            except Exception as e:
+                logging.error("Attempt %d: Not enough chips found: %s", attempt + 1, e)
+                if attempt < max_retries - 1:
+                    time.sleep(1)  # Wait before the next attempt
+                else:
+                    logging.error("Max retries reached. Initialization failed.")
+                    raise
 
         logging.info(f"{chip_counter} chips were found!")
 
