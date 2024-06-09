@@ -623,13 +623,17 @@ class BM1366Miner:
         with self.job_lock:
             self.current_job = job
 
-            coinb = job.deserialize_coinbase()
-            if coinb['height'] is not None:
-                logging.debug("mining for block %d", coinb['height'])
-
             if self.verify_solo:
-                is_solo, value_our, value_total = shared.verify_solo(self.address, coinb)
-                logging.debug("solo mining verification passed! reward: %d", value_our)
+                try:
+                    # only decode when verify_solo is enabled
+                    coinb = job.deserialize_coinbase()
+                    if coinb['height'] is not None:
+                        logging.debug("mining for block %d", coinb['height'])
+
+                    is_solo, value_our, value_total = shared.verify_solo(self.address, coinb)
+                    logging.debug("solo mining verification passed! reward: %d", value_our)
+                except Exception as e:
+                    logging.error("verify_solo error: %s", e)
             else:
                 logging.debug("solo mining not verified!")
 
