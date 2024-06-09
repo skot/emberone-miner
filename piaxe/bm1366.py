@@ -41,9 +41,6 @@ FAST_UART_CONFIGURATION = 0x28
 TICKET_MASK = 0x14
 MISC_CONTROL = 0x18
 
-serial_tx_func = None
-serial_rx_func = None
-reset_func = None
 
 class AsicResult:
     # Define the struct format corresponding to the C structure.
@@ -124,281 +121,395 @@ class TaskResult:
         self.nonce = nonce
         self.rolled_version = rolled_version
 
+class ClockManager:
+    def __init__(self, bm1366, clocks, num_asics=1):
+        self.bm1366 = bm1366
+        self.num_asics = num_asics
+        if isinstance(clocks, list):
+            self.clocks = clocks
+        else:
+            self.clocks = [clocks for i in range(0, self.num_asics)]
+
+    def set_clock(self, id, clock):
+        logging.info(f"setting clock of {id} to {clock}")
+        try:
+            self.bm1366.send_hash_frequency2(id, clock)
+            # all
+            if id == -1:
+                self.clocks = [clock for i in range(0, self.num_asics)]
+            else:
+                self.clocks[id] = clock
+        except Exception as e:
+            raise(e)
+
+    def get_clock(self, id):
+        if id == -1:
+            return self.clocks
+        else:
+            return self.clocks[id]
+
+    def do_frequency_ramp_up(self, frequency):
+        start = current = 56.25
+        step = 6.25
+        target= frequency
+
+        self.set_clock(-1, start)
+        while current < target:
+            next_step = min(step, target-current)
+            current += next_step
+            self.set_clock(-1, current)
+            time.sleep(0.100)
+
+class BM1366:
+    def __init__(self):
+        self.chip_id_response="aa5513660000"
+
+    def ll_init(self, _serial_tx_func, _serial_rx_func, _reset_func):
+        self.serial_tx_func = _serial_tx_func
+        self.serial_rx_func = _serial_rx_func
+        self.reset_func = _reset_func
+
+
+    def send(self, header, data):
+        packet_type = JOB_PACKET if header & TYPE_JOB else CMD_PACKET
+        data_len = len(data)
+        total_length = data_len + 6 if packet_type == JOB_PACKET else data_len + 5
+
+        # Create a buffer
+        buf = bytearray(total_length)
+
+        # Add the preamble
+        buf[0] = 0x55
+        buf[1] = 0xAA
+
+        # Add the header field
+        buf[2] = header
+
+        # Add the length field
+        buf[3] = data_len + 4 if packet_type == JOB_PACKET else data_len + 3
+
+        # Add the data
+        buf[4:data_len+4] = data
+
+        # Add the correct CRC type
+        if packet_type == JOB_PACKET:
+            crc16_total = crc16_false(buf[2:data_len+4])
+            buf[4 + data_len] = (crc16_total >> 8) & 0xFF
+            buf[5 + data_len] = crc16_total & 0xFF
+        else:
+            buf[4 + data_len] = crc5(buf[2:data_len+4])
+
+        self.serial_tx_func(buf)
 
-def ll_init(_serial_tx_func, _serial_rx_func, _reset_func):
-    global serial_tx_func, serial_rx_func, reset_func
-    serial_tx_func = _serial_tx_func
-    serial_rx_func = _serial_rx_func
-    reset_func = _reset_func
-
-
-def send_BM1366(header, data):
-    packet_type = JOB_PACKET if header & TYPE_JOB else CMD_PACKET
-    data_len = len(data)
-    total_length = data_len + 6 if packet_type == JOB_PACKET else data_len + 5
+    def send_simple(self, data):
+        self.serial_tx_func(data)
+
+    def send_chain_inactive(self):
+        self.send(TYPE_CMD | GROUP_ALL | CMD_INACTIVE, [0x00, 0x00])
+
+    def set_chip_address(self, chipAddr):
+        self.send(TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS, [chipAddr, 0x00])
+
+    def send_hash_frequency2(self, id, target_freq, max_diff = 0.001):
+        freqbuf = bytearray([0x00, 0x08, 0x40, 0xA0, 0x02, 0x41])  # freqbuf - pll0_parameter
+        postdiv_min = 255
+        postdiv2_min = 255
+        best = None
+
+        for refdiv in range(2, 0, -1):
+            for postdiv1 in range(7, 0, -1):
+                for postdiv2 in range(7, 0, -1):
+                    fb_divider = round(target_freq / 25.0 * (refdiv * postdiv2 * postdiv1))
+                    newf = 25.0 * fb_divider / (refdiv * postdiv2 * postdiv1)
+                    if \
+                        0xa0 <= fb_divider <= 0xef and \
+                        abs(target_freq - newf) < max_diff and \
+                        postdiv1 >= postdiv2 and \
+                        postdiv1 * postdiv2 < postdiv_min and \
+                        postdiv2 <= postdiv2_min:
 
-    # Create a buffer
-    buf = bytearray(total_length)
+                            postdiv2_min = postdiv2
+                            postdiv_min = postdiv1 * postdiv2
+                            best = (refdiv, fb_divider, postdiv1, postdiv2, newf)
 
-    # Add the preamble
-    buf[0] = 0x55
-    buf[1] = 0xAA
+        if not best:
+            raise Exception(f"didn't find PLL settings for target frequency {target_freq:.2f}")
 
-    # Add the header field
-    buf[2] = header
+        freqbuf[2] = 0x50 if best[1] * 25 / best[0] >= 2400 else 0x40
+        freqbuf[3] = best[1]
+        freqbuf[4] = best[0]
+        freqbuf[5] = ((best[2] - 1) & 0xf) << 4 | (best[3] - 1) & 0xf
 
-    # Add the length field
-    buf[3] = data_len + 4 if packet_type == JOB_PACKET else data_len + 3
+        if id != -1:
+            freqbuf[0] = id*2
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, freqbuf)
+        else:
+            self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf)
 
-    # Add the data
-    buf[4:data_len+4] = data
+        logging.info(f"Setting Frequency to {target_freq:.2f}MHz ({best[4]:.2f})")
 
-    # Add the correct CRC type
-    if packet_type == JOB_PACKET:
-        crc16_total = crc16_false(buf[2:data_len+4])
-        buf[4 + data_len] = (crc16_total >> 8) & 0xFF
-        buf[5 + data_len] = crc16_total & 0xFF
-    else:
-        buf[4 + data_len] = crc5(buf[2:data_len+4])
+        return freqbuf
 
-    serial_tx_func(buf)
 
-def send_simple(data):
-    serial_tx_func(data)
 
-def send_chain_inactive():
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_INACTIVE, [0x00, 0x00])
+    def count_asic_chips(self):
+        self.send(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
 
-def set_chip_address(chipAddr):
-    send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS, [chipAddr, 0x00])
+        chip_counter = 0
+        while True:
+            data = self.serial_rx_func(11, 5000)
 
-def send_hash_frequency2(id, target_freq, max_diff = 0.001):
-    freqbuf = bytearray([0x00, 0x08, 0x40, 0xA0, 0x02, 0x41])  # freqbuf - pll0_parameter
-    postdiv_min = 255
-    postdiv2_min = 255
-    best = None
+            if data is None:
+                break
 
-    for refdiv in range(2, 0, -1):
-        for postdiv1 in range(7, 0, -1):
-            for postdiv2 in range(7, 0, -1):
-                fb_divider = round(target_freq / 25.0 * (refdiv * postdiv2 * postdiv1))
-                newf = 25.0 * fb_divider / (refdiv * postdiv2 * postdiv1)
-                if \
-                    0xa0 <= fb_divider <= 0xef and \
-                    abs(target_freq - newf) < max_diff and \
-                    postdiv1 >= postdiv2 and \
-                    postdiv1 * postdiv2 < postdiv_min and \
-                    postdiv2 <= postdiv2_min:
+            # only count chip id responses
+            if self.chip_id_response not in binascii.hexlify(data).decode('utf8'):
+                continue
 
-                        postdiv2_min = postdiv2
-                        postdiv_min = postdiv1 * postdiv2
-                        best = (refdiv, fb_divider, postdiv1, postdiv2, newf)
+            chip_counter += 1
 
-    if not best:
-        raise Exception(f"didn't find PLL settings for target frequency {target_freq:.2f}")
+        self.send(TYPE_CMD | GROUP_ALL | CMD_INACTIVE, [0x00, 0x00])
 
-    freqbuf[2] = 0x50 if best[1] * 25 / best[0] >= 2400 else 0x40
-    freqbuf[3] = best[1]
-    freqbuf[4] = best[0]
-    freqbuf[5] = ((best[2] - 1) & 0xf) << 4 | (best[3] - 1) & 0xf
+        return chip_counter
 
-    if id != -1:
-        freqbuf[0] = id*2
-        send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, freqbuf)
-    else:
-        send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf)
 
-    logging.info(f"Setting Frequency to {target_freq:.2f}MHz ({best[4]:.2f})")
+    def send_init(self, frequency, expected, chips_enabled = None):
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
 
-    return freqbuf
+        chip_counter = self.count_asic_chips()
 
+        if chip_counter != expected:
+            raise Exception(f"chips mismatch. expected: {expected}, actual: {chip_counter}")
 
-def do_frequency_ramp_up(frequency):
-    start = current = 56.25
-    step = 6.25
-    target= frequency
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xa8, 0x00, 0x07, 0x00, 0x00])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x18, 0xff, 0x0f, 0xc1, 0x00])
 
-    send_hash_frequency2(-1, start)
-    while current < target:
-        next_step = min(step, target-current)
-        current += next_step
-        send_hash_frequency2(-1, current)
-        time.sleep(0.100)
+        for id in range(0, chip_counter):
+            self.set_chip_address(id * 2)
 
-def count_asic_chips():
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x85, 0x40])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x80, 0x20])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x14, 0x00, 0x00, 0x00, 0xFF])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x54, 0x00, 0x00, 0x00, 0x03])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x58, 0x02, 0x11, 0x11, 0x11])
 
-    chip_counter = 0
-    while True:
-        data = serial_rx_func(11, 1000)
+        self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [0x00, 0x2c, 0x00, 0x7c, 0x00, 0x03])
 
-        if data is None:
-            break
+        # change baud
+        #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
 
-        # only count chip id responses
-        if "aa5513660000" not in binascii.hexlify(data).decode('utf8'):
-            continue
+        for id in range(0, chip_counter):
+            if chips_enabled is not None and id not in chips_enabled:
+                continue
 
-        chip_counter += 1
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0xA8, 0x00, 0x07, 0x01, 0xF0])
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x18, 0xF0, 0x00, 0xC1, 0x00])
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x85, 0x40])
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x80, 0x20])
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x82, 0xAA])
+            time.sleep(0.500)
 
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_INACTIVE, [0x00, 0x00])
+        self.clock_manager = ClockManager(self, frequency, chip_counter)
+        self.clock_manager.do_frequency_ramp_up(frequency)
 
-    return chip_counter
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x10, 0x00, 0x00, 0x15, 0x1c])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
 
+        return chip_counter
 
-def send_init(frequency, expected, chips_enabled = None):
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
 
-    chip_counter = count_asic_chips()
+    def request_chip_id(self):
+        self.send_simple([0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A]) # chipid
 
-    if chip_counter != expected:
-        raise Exception(f"chips mismatch. expected: {expected}, actual: {chip_counter}")
 
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xa8, 0x00, 0x07, 0x00, 0x00])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x18, 0xff, 0x0f, 0xc1, 0x00])
+    def send_read_address(self):
+        self.send(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
 
-    for id in range(0, chip_counter):
-        set_chip_address(id * 2)
+    def reset(self):
+        self.reset_func()
 
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x85, 0x40])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x80, 0x20])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x14, 0x00, 0x00, 0x00, 0xFF])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x54, 0x00, 0x00, 0x00, 0x03])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x58, 0x02, 0x11, 0x11, 0x11])
+    def init(self, frequency, expected, chips_enabled = None):
+        logging.info("Initializing BM1366")
 
-    send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [0x00, 0x2c, 0x00, 0x7c, 0x00, 0x03])
+        self.reset()
 
-    for id in range(0, chip_counter):
-        if chips_enabled is not None and id not in chips_enabled:
-            continue
+        return self.send_init(frequency, expected, chips_enabled)
 
-        send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0xA8, 0x00, 0x07, 0x01, 0xF0])
-        send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x18, 0xF0, 0x00, 0xC1, 0x00])
-        send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x85, 0x40])
-        send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x80, 0x20])
-        send_BM1366(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x82, 0xAA])
-        time.sleep(0.500)
+    # Baud formula = 25M/((denominator+1)*8)
+    # The denominator is 5 bits found in the misc_control (bits 9-13)
+    def set_default_baud(self):
+        # default divider of 26 (11010) for 115,749
+        baudrate = [0x00, MISC_CONTROL, 0x00, 0x00, 0b01111010, 0b00110001]
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, baudrate, 6)
+        return 115749
 
-    do_frequency_ramp_up(frequency)
+    def set_max_baud(self):
+        # Log the setting of max baud (you would need to have a logging mechanism in place)
+        logging.info("Setting max baud of 1000000")
 
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x10, 0x00, 0x00, 0x15, 0x1c])
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        # divider of 0 for 3,125,000
+        init8 = [0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03]
+        self.send_simple(init8, 11)
+        return 1000000
 
-    return chip_counter
+    def _largest_power_of_two(self, n):
+        # Finds the largest power of 2 less than or equal to n
+        p = 1
+        while p * 2 <= n:
+            p *= 2
+        return p
 
+    def _reverse_bits(self, byte):
+        # Reverses the bits in a byte
+        return int('{:08b}'.format(byte)[::-1], 2)
 
-def request_chip_id():
-    send_simple([0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A]) # chipid
+    def set_job_difficulty_mask(self, difficulty):
+        # Default mask of 256 diff
+        job_difficulty_mask = [0x00, TICKET_MASK, 0b00000000, 0b00000000, 0b00000000, 0b11111111]
 
+        # The mask must be a power of 2 so there are no holes
+        # Correct:  {0b00000000, 0b00000000, 0b11111111, 0b11111111}
+        # Incorrect: {0b00000000, 0b00000000, 0b11100111, 0b11111111}
+        # (difficulty - 1) if it is a pow 2 then step down to second largest for more hashrate sampling
+        difficulty = self._largest_power_of_two(difficulty) - 1
 
-def send_read_address():
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
+        # convert difficulty into char array
+        # Ex: 256 = {0b00000000, 0b00000000, 0b00000000, 0b11111111}, {0x00, 0x00, 0x00, 0xff}
+        # Ex: 512 = {0b00000000, 0b00000000, 0b00000001, 0b11111111}, {0x00, 0x00, 0x01, 0xff}
+        for i in range(4):
+            value = (difficulty >> (8 * i)) & 0xFF
+            # The char is read in backwards to the register so we need to reverse them
+            # So a mask of 512 looks like 0b00000000 00000000 00000001 1111111
+            # and not 0b00000000 00000000 10000000 1111111
+            job_difficulty_mask[5 - i] = self._reverse_bits(value)
 
-def reset():
-    reset_func(True)
-    time.sleep(0.5)
-    reset_func(False)
-    time.sleep(0.5)
+        # Log the setting of job ASIC mask (replace with your logging method)
+        logging.info("Setting job ASIC mask to %d", difficulty)
 
-def init(frequency, expected, chips_enabled = None):
-    logging.info("Initializing BM1366")
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, job_difficulty_mask)
 
-    reset()
+    def send_work(self, t: WorkRequest):
+        job_packet_format = '<B B I I I 32s 32s I'
+        job_packet_data = struct.pack(
+            job_packet_format,
+            t.id,
+            0x01,  # num_midstates
+            t.starting_nonce,
+            t.nbits,
+            t.ntime,
+            t.merkle_root,
+            t.prev_block_hash,
+            t.version
+        )
+        #logging.debug("%s", bytearray(job_packet_data).hex())
 
-    return send_init(frequency, expected, chips_enabled)
+        self.send((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), job_packet_data)
+
+    def get_job_id_from_result(self, job_id):
+        return job_id & 0xf8
 
-# Baud formula = 25M/((denominator+1)*8)
-# The denominator is 5 bits found in the misc_control (bits 9-13)
-def set_default_baud():
-    # default divider of 26 (11010) for 115,749
-    baudrate = [0x00, MISC_CONTROL, 0x00, 0x00, 0b01111010, 0b00110001]
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, baudrate, 6)
-    return 115749
+    def get_job_id(self, job_id):
+        return ((job_id << 3) & 0x7f) + 0x08
 
-def set_max_baud():
-    # Log the setting of max baud (you would need to have a logging mechanism in place)
-    logging.info("Setting max baud of 1000000")
+    def receive_work(self, timeout=100):
+        # Read 11 bytes from serial port
+        asic_response_buffer = self.serial_rx_func(11, timeout)
 
-    # divider of 0 for 3,125,000
-    init8 = [0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03]
-    send_simple(init8, 11)
-    return 1000000
+        # Check for valid response
+        if not asic_response_buffer:
+            # Didn't find a solution, restart and try again
+            return None
 
-def largest_power_of_two(n):
-    # Finds the largest power of 2 less than or equal to n
-    p = 1
-    while p * 2 <= n:
-        p *= 2
-    return p
+        if len(asic_response_buffer) != 11 or asic_response_buffer[0:2] != b'\xAA\x55':
+            logging.info(f"Serial RX invalid {len(asic_response_buffer)}")
+            logging.info(f"{asic_response_buffer.hex()}")
+            return None
 
-def reverse_bits(byte):
-    # Reverses the bits in a byte
-    return int('{:08b}'.format(byte)[::-1], 2)
+        # Unpack the buffer into an AsicResult object
+        asic_result = AsicResult().from_bytes(asic_response_buffer)
+        return asic_result
 
-def set_job_difficulty_mask(difficulty):
-    # Default mask of 256 diff
-    job_difficulty_mask = [0x00, TICKET_MASK, 0b00000000, 0b00000000, 0b00000000, 0b11111111]
 
-    # The mask must be a power of 2 so there are no holes
-    # Correct:  {0b00000000, 0b00000000, 0b11111111, 0b11111111}
-    # Incorrect: {0b00000000, 0b00000000, 0b11100111, 0b11111111}
-    # (difficulty - 1) if it is a pow 2 then step down to second largest for more hashrate sampling
-    difficulty = largest_power_of_two(difficulty) - 1
 
-    # convert difficulty into char array
-    # Ex: 256 = {0b00000000, 0b00000000, 0b00000000, 0b11111111}, {0x00, 0x00, 0x00, 0xff}
-    # Ex: 512 = {0b00000000, 0b00000000, 0b00000001, 0b11111111}, {0x00, 0x00, 0x01, 0xff}
-    for i in range(4):
-        value = (difficulty >> (8 * i)) & 0xFF
-        # The char is read in backwards to the register so we need to reverse them
-        # So a mask of 512 looks like 0b00000000 00000000 00000001 1111111
-        # and not 0b00000000 00000000 10000000 1111111
-        job_difficulty_mask[5 - i] = reverse_bits(value)
+class BM1368(BM1366):
+    def __init__(self):
+        self.chip_id_response="aa5513680000"
 
-    # Log the setting of job ASIC mask (replace with your logging method)
-    logging.info("Setting job ASIC mask to %d", difficulty)
+    def get_job_id_from_result(self, job_id):
+        return (job_id & 0xf0) >> 1
 
-    send_BM1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, job_difficulty_mask)
+    def get_job_id(self, job_id):
+        # job-IDs: 00, 18, 30, 48, 60, 78, 10, 28, 40, 58, 70, 08, 20, 38, 50, 68
+        return (job_id * 24) & 0x7f
 
-def send_work(t: WorkRequest):
-    job_packet_format = '<B B I I I 32s 32s I'
-    job_packet_data = struct.pack(
-        job_packet_format,
-        t.id,
-        0x01,  # num_midstates
-        t.starting_nonce,
-        t.nbits,
-        t.ntime,
-        t.merkle_root,
-        t.prev_block_hash,
-        t.version
-    )
-    #logging.debug("%s", bytearray(job_packet_data).hex())
+    def clear_serial_buffer(self):
+        while True:
+            data = self.serial_rx_func(11, 5000)
+            if data is None:
+                return
 
-    send_BM1366((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), job_packet_data)
+    def send_init(self, frequency, expected, chips_enabled = None):
+        self.clear_serial_buffer()
 
-def receive_work(timeout=100):
-    # Read 11 bytes from serial port
-    asic_response_buffer = serial_rx_func(11, timeout)
+        # enable and set version rolling mask to 0xFFFF
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        # enable and set version rolling mask to 0xFFFF again
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        # enable and set version rolling mask to 0xFFFF again
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        # enable and set version rolling mask to 0xFFFF again
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
 
-    # Check for valid response
-    if not asic_response_buffer:
-        # Didn't find a solution, restart and try again
-        return None
+        chip_counter = self.count_asic_chips()
 
-    if len(asic_response_buffer) != 11 or asic_response_buffer[0:2] != b'\xAA\x55':
-        logging.info(f"Serial RX invalid {len(asic_response_buffer)}")
-        logging.info(f"{asic_response_buffer.hex()}")
-        return None
+        if chip_counter != expected:
+            raise Exception(f"chips mismatch. expected: {expected}, actual: {chip_counter}")
 
-    # Unpack the buffer into an AsicResult object
-    asic_result = AsicResult().from_bytes(asic_response_buffer)
-    return asic_result
+        # enable and set version rolling mask to 0xFFFF again
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+        # Reg_A8
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xa8, 0x00, 0x07, 0x00, 0x00])
+        # Misc Control
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x18, 0xff, 0x0f, 0xc1, 0x00])
 
+        for id in range(0, chip_counter):
+            self.set_chip_address(id * 2)
 
-# Function to reverse the bytes in a 16-bit number
-def reverse_uint16(num):
-    return ((num >> 8) | (num << 8)) & 0xFFFF
+        # Core Register Control
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x8b, 0x00])
+        # Core Register Control
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x80, 0x18])
+        # set ticket mask
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x14, 0x00, 0x00, 0x00, 0xFF])
+        # Analog Mux Control
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x54, 0x00, 0x00, 0x00, 0x03])
+        # Set the IO Driver Strength
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x58, 0x02, 0x11, 0x11, 0x11])
 
+        for id in range(0, chip_counter):
+            if chips_enabled is not None and id not in chips_enabled:
+                continue
+
+            # Reg_A8
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0xA8, 0x00, 0x07, 0x01, 0xF0])
+            # Misc Control
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x18, 0xF0, 0x00, 0xC1, 0x00])
+            # Core Register Control
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x8b, 0x00])
+            # Core Register Control
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x80, 0x18])
+            # Core Register Control
+            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x82, 0xAA])
+            time.sleep(0.500)
+
+        self.clock_manager = ClockManager(self, frequency, chip_counter)
+        self.clock_manager.do_frequency_ramp_up(frequency)
+
+        # change baud
+        #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x10, 0x00, 0x00, 0x15, 0xa4])
+        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
+
+        return chip_counter

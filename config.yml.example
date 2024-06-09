@@ -36,8 +36,27 @@ qaxe:
   serial_port_asic: "/dev/ttyACM1"
   serial_port_ctrl: "/dev/ttyACM2"
 
+qaxe+:
+  name: QAxe+
+  chips: 4
+  fan_speed_1: 1.0
+  fan_speed_2: 1.0
+  asic_frequency: 485
+  extranonce2_interval: 1.9
+  serial_port_asic: "/dev/ttyACM1"
+  serial_port_ctrl: "/dev/ttyACM2"
+
 flex4axe:
   name: Flex4Axe
+  chips: 16
+  fan_speed_1: 1.0
+  asic_frequency: 480
+  extranonce2_interval: 1.9
+  serial_port_asic: "/dev/ttyACM1"
+  serial_port_ctrl: "/dev/ttyACM2"
+
+0xaxe:
+  name: 0xAxe
   chips: 16
   fan_speed_1: 1.0
   asic_frequency: 480
@@ -63,6 +82,17 @@ influx:
   bucket: piaxe
   timezone: Europe/Berlin
 
+# for Refoss Tasmota
+smartplug:
+  enabled: false
+  # URL of smart plug data
+  url: http://192.168.0.166/cm?cmnd=Status%208
 
 i2c_display:
   enabled: false
+
+rest_api:
+  enabled: false
+  host: 127.0.0.1
+  port: 5000
+

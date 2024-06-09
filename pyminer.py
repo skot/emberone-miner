@@ -428,7 +428,10 @@ class Miner(SimpleJsonRpcClient):
     self.connect(sock)
 
     if self._suggest_difficulty:
-        self.send(method = 'mining.suggest_difficulty', params = [self._suggest_difficulty])
+        try:
+          self.send(method = 'mining.suggest_difficulty', params = [self._suggest_difficulty])
+        except:
+          logging.warn("suggest_difficulty failed, mybe not supported by the stratum server")
 
     self.send(method = 'mining.subscribe', params = [ f"{self._miner.get_user_agent()}" ])
 

@@ -345,6 +345,9 @@ def int_to_bin32(v, sep=0):
 
     return bin
 
+# Function to reverse the bytes in a 16-bit number
+def reverse_uint16(num):
+    return ((num >> 8) | (num << 8)) & 0xFFFF
 
 def calculate_target(difficulty):
     if difficulty < 0:

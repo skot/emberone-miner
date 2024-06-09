@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ASIC Frequency Adjuster</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+<body>
+<h1>ASIC Frequency Management</h1>
+<div id="status" style="color: red;"></div> <!-- Status bar for displaying messages -->
+<div id="frequencies"></div>
+<script>
+host="" //http://localhost:5000"
+function fetchFrequencies() {
+    $.get(`${host}/clocks`, function(data) {
+        let html = '';
+        data.forEach((freq, index) => {
+            html += `<div>ASIC ${index}: <button onclick="adjustFrequency(${index}, -5.0)">-</button> ${freq} MHz <button onclick="adjustFrequency(${index}, 5.0)">+</button></div>`;
+        });
+        $('#frequencies').html(html);
+    }).fail(function(response) {
+        $('#status').text(response.responseJSON.error || 'Failed to fetch frequencies.');
+    });
+}
+
+function adjustFrequency(asicId, change) {
+    $.get('/clocks', function(data) {
+        let newFreq = data[asicId] + change;
+        $.ajax({
+            url: `/clock/${asicId}`,
+            type: 'POST',
+            contentType: 'application/json',  // Set Content-Type header to application/json
+            data: JSON.stringify({frequency: newFreq}),  // Send data as JSON
+            success: function(response) {
+                if (response.error) {
+                    $('#status').text(response.error);
+                } else {
+                    $('#status').text('Frequency updated successfully.');
+                    fetchFrequencies();  // Refresh the frequencies display
+                }
+            },
+            error: function(response) {
+                $('#status').text(response.responseJSON.error || 'Error updating frequency.');
+            }
+        });
+    });
+}
+
+$(document).ready(function() {
+    fetchFrequencies();
+});
+</script>
+</body>
+</html>
+

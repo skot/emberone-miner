@@ -57,11 +57,20 @@ class Influx:
         self.tz = pytz.timezone(config['timezone'])
         self.stats = stats
         self.stop_event = threading.Event()
+        self.callbacks = []
         self.connect()
+
+    def add_stats_callback(self, callback):
+        """Registers a callback function."""
+        self.callbacks.append(callback)
 
     def start(self):
         self.submit_thread = threading.Thread(target=self._submit_thread)
         self.submit_thread.start()
+
+    def shutdown(self):
+        self.stop_event.set()
+        self.submit_thread.join()
 
     def _submit_thread(self):
         while not self.stop_event.is_set():
@@ -71,14 +80,14 @@ class Influx:
 
             with self.stats.lock:
                 point = Point(f"{ self.stats_name }").time(datetime.now(self.tz), WritePrecision.NS) \
-                    .field("temperature", float(self.stats.temp)) \
-                    .field("temperature2", float(self.stats.temp2)) \
-                    .field("temperature3", float(self.stats.temp3)) \
-                    .field("temperature4", float(self.stats.temp4)) \
-                    .field("vdomain1", float(self.stats.vdomain1)) \
-                    .field("vdomain2", float(self.stats.vdomain2)) \
-                    .field("vdomain3", float(self.stats.vdomain3)) \
-                    .field("vdomain4", float(self.stats.vdomain4)) \
+                    .field("temperature", float(self.stats.temp or 0.0)) \
+                    .field("temperature2", float(self.stats.temp2 or 0.0)) \
+                    .field("temperature3", float(self.stats.temp3 or 0.0)) \
+                    .field("temperature4", float(self.stats.temp4 or 0.0)) \
+                    .field("vdomain1", float(self.stats.vdomain1 or 0.0)) \
+                    .field("vdomain2", float(self.stats.vdomain2 or 0.0)) \
+                    .field("vdomain3", float(self.stats.vdomain3 or 0.0)) \
+                    .field("vdomain4", float(self.stats.vdomain4 or 0.0)) \
                     .field("hashing_speed", float(self.stats.hashing_speed)) \
                     .field("invalid_shares", int(self.stats.invalid_shares)) \
                     .field("valid_shares", int(self.stats.valid_shares)) \
@@ -93,6 +102,9 @@ class Influx:
                     .field("blocks_found", int(self.stats.blocks_found)) \
                     .field("difficulty", int(self.stats.difficulty)) \
                     .field("duplicate_hashes", int(self.stats.duplicate_hashes))
+
+            for callback in self.callbacks:
+                callback(point)
 
             try:
                 write_api = self.client.write_api(write_options=SYNCHRONOUS)
