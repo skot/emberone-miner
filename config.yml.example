@@ -1,7 +1,9 @@
 debug_bm1366: false
-verify_solo: true
+verify_solo: false
 miner: piaxe
-suggest_difficulty: 2048
+
+# works only with public pool
+#suggest_difficulty: 2048
 
 piaxe:
   name: PiAxe
