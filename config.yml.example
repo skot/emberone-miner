@@ -41,8 +41,8 @@ qaxe+:
   chips: 4
   fan_speed_1: 1.0
   fan_speed_2: 1.0
-  asic_frequency: 485
-  extranonce2_interval: 1.9
+  asic_frequency: 490
+  extranonce2_interval: 1.5
   serial_port_asic: "/dev/ttyACM1"
   serial_port_ctrl: "/dev/ttyACM2"
 
