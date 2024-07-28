@@ -455,7 +455,7 @@ class BM1366Miner:
                 # temperature response
                 if data[2] == 0x80 and data[3] == 0x00 and data[7] == 0xb4:
                     value = data[4] << 8 | data[5]
-                    id = data[6] / 2
+                    id = data[6] // 2
 
                     logging.debug(f"temp for chip {id}: {value}")
                     continue
