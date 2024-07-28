@@ -452,16 +452,20 @@ class BM1366Miner:
                 #if self.debug_bm1366:
                 #    logging.debug("<- %s", bytes(data).hex())
 
-                # temperature response
-                if data[2] == 0x80 and data[3] == 0x00 and data[7] == 0xb4:
-                    value = data[4] << 8 | data[5]
-                    id = data[6] // 2
-
-                    logging.debug(f"temp for chip {id}: {value}")
-                    continue
-
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
                 if not asic_result or not asic_result.nonce:
+                    logging.warn(f"invalid response: {bytes(data).hex()}")
+                    continue
+
+                # temperature response
+                (temp_value, temp_id) = self.asics.try_get_temp_from_response(asic_result)
+                if temp_value:
+                    logging.debug(f"temp for chip {temp_id}: {temp_value}")
+
+                    attribute_name = f"asic_temp{temp_id+1}_raw"
+                    with self.stats.lock:
+                        setattr(self.stats, attribute_name, temp_value)
+
                     continue
 
                 with self.job_lock:
