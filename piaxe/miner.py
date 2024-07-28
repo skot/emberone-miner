@@ -454,7 +454,6 @@ class BM1366Miner:
 
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
                 if not asic_result or not asic_result.nonce:
-                    logging.warn(f"invalid response: {bytes(data).hex()}")
                     continue
 
                 # temperature response
