@@ -64,7 +64,6 @@ class BM1366Miner:
         self._internal_id = 0
         self._latest_work_id = 0
         self._jobs = dict()
-        self._timestamp_last_chipid = 0
         self.last_response = time.time()
 
         self.tracker_send = list()
@@ -166,6 +165,11 @@ class BM1366Miner:
                 break
             except Exception as e:
                 logging.error("Attempt %d: Not enough chips found: %s", attempt + 1, e)
+
+                # only retry on 1368s
+                if not isinstance(self.asics, bm1366.BM1368):
+                    raise
+
                 if attempt < max_retries - 1:
                     time.sleep(1)  # Wait before the next attempt
                 else:
@@ -458,10 +462,6 @@ class BM1366Miner:
 
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
                 if not asic_result or not asic_result.nonce:
-                    continue
-
-                if asic_result.nonce == 0x6613:
-                    self._timestamp_last_chipid = time.time()
                     continue
 
                 with self.job_lock:
