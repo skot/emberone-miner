@@ -303,13 +303,11 @@ class BM1366Miner:
     def _monitor_temperature(self):
         while not self.stop_event.is_set():
 
+            temp = self.hardware.read_temperature_and_voltage()
+
             # trigger measurement of metrics
             if isinstance(self.asics, bm1366.BM1368):
                 self.asics.request_temps()
-
-            temp = self.hardware.read_temperature_and_voltage()
-
-            logging.info("temperature and voltage: %s", str(temp))
 
             with self.stats.lock:
                 self.stats.temp = temp["temp"][0]
@@ -320,6 +318,18 @@ class BM1366Miner:
                 self.stats.vdomain2 = temp["voltage"][1]
                 self.stats.vdomain3 = temp["voltage"][2]
                 self.stats.vdomain4 = temp["voltage"][3]
+
+                # inject asic temps into the temp dict for display
+                temp['asic_temp_raw'] = [
+                    self.stats.asic_temp1_raw,
+                    self.stats.asic_temp2_raw,
+                    self.stats.asic_temp3_raw,
+                    self.stats.asic_temp4_raw
+                ]
+
+            logging.info("temperature and voltage: %s", str(temp))
+
+
 
             for i in range(0, 4):
                 if temp["temp"][i] is not None and temp["temp"][i] > 70.0:

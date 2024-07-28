@@ -529,7 +529,7 @@ class BM1368(BM1366):
         # aa55 8000080c 00 b4 0000 1a
         if response.nonce & 0x0000ffff == 0x00000080 and response.job_id == 0xb4:
             value = (response.nonce & 0xff000000) >> 24 | (response.nonce & 0x00ff0000) >> 8
-            id = response.midstate_num
+            id = response.midstate_num // 2
 
             return (value, id)
 

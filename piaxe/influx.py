@@ -32,10 +32,10 @@ class Stats:
         self.blocks_found = 0
         self.total_blocks_found = 0
         self.duplicate_hashes = 0
-        self.asic_temp1_raw = 0
-        self.asic_temp2_raw = 0
-        self.asic_temp3_raw = 0
-        self.asic_temp4_raw = 0
+        self.asic_temp1_raw = None
+        self.asic_temp2_raw = None
+        self.asic_temp3_raw = None
+        self.asic_temp4_raw = None
 
         self.lock = threading.Lock()
 
