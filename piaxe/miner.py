@@ -298,6 +298,11 @@ class BM1366Miner:
 
     def _monitor_temperature(self):
         while not self.stop_event.is_set():
+
+            # trigger measurement of metrics
+            if isinstance(self.asics, bm1366.BM1368):
+                self.asics.request_temps()
+
             temp = self.hardware.read_temperature_and_voltage()
 
             logging.info("temperature and voltage: %s", str(temp))
@@ -442,6 +447,14 @@ class BM1366Miner:
 
                 #if self.debug_bm1366:
                 #    logging.debug("<- %s", bytes(data).hex())
+
+                # temperature response
+                if data[2] == 0x80 and data[3] == 0x00 and data[7] == 0xb4:
+                    value = data[4] << 8 | data[5]
+                    id = data[6] / 2
+
+                    logging.debug(f"temp for chip {id}: {value}")
+                    continue
 
                 asic_result = bm1366.AsicResult().from_bytes(bytes(data))
                 if not asic_result or not asic_result.nonce:
@@ -641,4 +654,3 @@ class BM1366Miner:
 
 
             self.new_job_event.set()
-
