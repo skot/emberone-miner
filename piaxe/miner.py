@@ -320,11 +320,11 @@ class BM1366Miner:
                 self.stats.vdomain4 = temp["voltage"][3]
 
                 # inject asic temps into the temp dict for display
-                temp['asic_temp_raw'] = [
-                    self.stats.asic_temp1_raw,
-                    self.stats.asic_temp2_raw,
-                    self.stats.asic_temp3_raw,
-                    self.stats.asic_temp4_raw
+                temp['asic_temp'] = [
+                    self.stats.asic_temp1,
+                    self.stats.asic_temp2,
+                    self.stats.asic_temp3,
+                    self.stats.asic_temp4
                 ]
 
             logging.info("temperature and voltage: %s", str(temp))
@@ -471,9 +471,9 @@ class BM1366Miner:
                 if temp_value:
                     logging.debug(f"temp for chip {temp_id}: {temp_value}")
 
-                    attribute_name = f"asic_temp{temp_id+1}_raw"
+                    attribute_name = f"asic_temp{temp_id+1}"
                     with self.stats.lock:
-                        setattr(self.stats, attribute_name, temp_value)
+                        setattr(self.stats, attribute_name, temp_value * 0.171342 - 299.5144)
 
                     continue
 
