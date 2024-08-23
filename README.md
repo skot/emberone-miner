@@ -71,7 +71,7 @@ Usage
 
 Install the required python packages via
 ```
-pip3 install -r requirements.txt
+pip3 install -r requirements.txt --break-system-packages
 ```
 
 configure the `config.yml` file to your needs
