@@ -349,8 +349,8 @@ class Miner(SimpleJsonRpcClient):
       if 'params' not in reply or len(reply['params']) != 1:
         raise self.MinerWarning('Malformed mining.set_difficulty message', reply)
 
-      (difficulty, ) = int(reply['params'])
-      self._miner.set_difficulty(difficulty)
+      (difficulty, ) = reply['params']
+      self._miner.set_difficulty(int(difficulty))
 
       logging.debug('Change difficulty: difficulty=%s' % difficulty)
 
