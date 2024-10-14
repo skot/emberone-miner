@@ -1,9 +1,9 @@
-debug_bm1366: false
+debug_bm1366: true
 verify_solo: false
-miner: piaxe
+miner: qaxe+
 
 # works only with public pool
-#suggest_difficulty: 2048
+suggest_difficulty: 2048
 
 piaxe:
   name: PiAxe
@@ -33,8 +33,8 @@ qaxe:
   fan_speed_2: 1.0
   asic_frequency: 485
   extranonce2_interval: 1.9
-  serial_port_asic: "/dev/ttyACM1"
-  serial_port_ctrl: "/dev/ttyACM2"
+  serial_port_asic: "/dev/ttyACM0"
+  serial_port_ctrl: "/dev/ttyACM1"
 
 qaxe+:
   name: QAxe+
@@ -43,8 +43,8 @@ qaxe+:
   fan_speed_2: 1.0
   asic_frequency: 490
   extranonce2_interval: 1.5
-  serial_port_asic: "/dev/ttyACM1"
-  serial_port_ctrl: "/dev/ttyACM2"
+  serial_port_asic: "/dev/ttyACM0"
+  serial_port_ctrl: "/dev/ttyACM1"
 
 flex4axe:
   name: Flex4Axe
@@ -52,8 +52,8 @@ flex4axe:
   fan_speed_1: 1.0
   asic_frequency: 480
   extranonce2_interval: 1.9
-  serial_port_asic: "/dev/ttyACM1"
-  serial_port_ctrl: "/dev/ttyACM2"
+  serial_port_asic: "/dev/ttyACM0"
+  serial_port_ctrl: "/dev/ttyACM1"
 
 0xaxe:
   name: 0xAxe
@@ -61,8 +61,8 @@ flex4axe:
   fan_speed_1: 1.0
   asic_frequency: 480
   extranonce2_interval: 1.9
-  serial_port_asic: "/dev/ttyACM1"
-  serial_port_ctrl: "/dev/ttyACM2"
+  serial_port_asic: "/dev/ttyACM0"
+  serial_port_ctrl: "/dev/ttyACM1"
 
 alerter:
   enabled: false
