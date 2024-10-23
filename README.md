@@ -69,14 +69,26 @@ Usage
 
 ## Installation
 
-Install the required python packages via
 ```
+# install pip3
+sudo apt install python3-pip
+
+# clone repository
+git clone https://github.com/shufps/piaxe-miner
+cd piaxe-miner
+
+# and install requirements
 pip3 install -r requirements.txt --break-system-packages
+
+# copy example files
+cp config.yml.example config.yml
+cp start_mainnet_publicpool_example.sh start.sh
 ```
+In the new `start.sh` insert your `bc1...` address.
 
-configure the `config.yml` file to your needs
-change values like the miner type and debug value
+After copying the example files, edit them. The `config.yml` probably doesn't need changes if connecting a QAxe+.
 
+### PiAxe
 Depending on your Device change between
 `piaxe` and `qaxe` in the `miner` setting.
 
@@ -84,15 +96,6 @@ Make sure to change to the correct USB Serial `PiAxe`:
 ```
   serial_port: "/dev/ttyS0"
 ``` 
-</br>
-
-Make sure to change to the correct USB Serial `QAxe`:
-```
-  serial_port_asic: "/dev/ttyACM0"
-  serial_port_ctrl: "/dev/ttyACM1"
-```
-
-**tip**: if you are unsure which ttyACMs are the right one, you can use `dmesg` to view the latest system messages.
 
 ### If running on Pi Zero (1 or 2)
 Disable the influx or point it to your externally managed influxdb, with the most recent changes the pi zero can no longer run grafana.
