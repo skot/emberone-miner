@@ -199,8 +199,11 @@ class BM1366Miner:
         influx_config = self.config.get('influx', None)
         self.influx = None
         if influx_config is not None and influx_config.get('enabled', False):
-            stats_name = "mainnet_stats" if self.network == shared.BitcoinNetwork.MAINNET else \
-                "testnet_stats" if self.network == shared.BitcoinNetwork.TESTNET else "regtest_stats"
+            stats_name = "mainnet_stats"
+            if self.network == shared.BitcoinNetwork.TESTNET:
+                stats_name = "testnet_stats"
+            elif self.network == shared.BitcoinNetwork.REGTEST:
+                stats_name = "regtest_stats"
 
             self.influx = influx.Influx(influx_config, self.stats, stats_name)
             try:
