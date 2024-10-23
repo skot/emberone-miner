@@ -350,7 +350,7 @@ class Miner(SimpleJsonRpcClient):
         raise self.MinerWarning('Malformed mining.set_difficulty message', reply)
 
       (difficulty, ) = reply['params']
-      self._miner.set_difficulty(difficulty)
+      self._miner.set_difficulty(int(difficulty))
 
       logging.debug('Change difficulty: difficulty=%s' % difficulty)
 
