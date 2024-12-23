@@ -2,7 +2,7 @@ debug_bm1366: true
 verify_solo: false
 miner: qaxe+
 
-# works only with public pool
+# maybe doesn't work with all pools
 suggest_difficulty: 2048
 
 piaxe:
