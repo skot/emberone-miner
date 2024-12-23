@@ -392,6 +392,13 @@ class Miner(SimpleJsonRpcClient):
 
         logging.debug('Authorized: worker_name=%s' % worker_name)
 
+        # suggest_difficulty after authorize
+        if self._suggest_difficulty:
+            try:
+              self.send(method = 'mining.suggest_difficulty', params = [self._suggest_difficulty])
+            except:
+              logging.warn("suggest_difficulty failed, mybe not supported by the stratum server")
+
       # ...submit; complain if the server didn't accept our submission
       elif request.get('method') == 'mining.submit':
         if 'result' not in reply or not reply['result']:
@@ -426,12 +433,6 @@ class Miner(SimpleJsonRpcClient):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((hostname, port))
     self.connect(sock)
-
-    if self._suggest_difficulty:
-        try:
-          self.send(method = 'mining.suggest_difficulty', params = [self._suggest_difficulty])
-        except:
-          logging.warn("suggest_difficulty failed, mybe not supported by the stratum server")
 
     self.send(method = 'mining.subscribe', params = [ f"{self._miner.get_user_agent()}" ])
 
