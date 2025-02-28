@@ -15,11 +15,13 @@ from shared import shared
 
 from . import ssd1306
 from . import bm1366
+from . import bm1362
 from . import influx
 from . import discord
 from . import rest
 from . import smartplug
 
+from .boards import emberone
 from .boards import piaxe
 from .boards import qaxe
 from .boards import bitcrane
@@ -126,6 +128,9 @@ class BM1366Miner:
         if self.miner == 'bitcrane':
             self.hardware = bitcrane.BitcraneHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
+        if self.miner == 'emberone':
+            self.hardware = emberone.EmberoneHardware(self.config[self.miner])
+            self.asics = bm1362.BM1362()
         if self.miner == 'piaxe':
             self.hardware = piaxe.RPiHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
@@ -350,7 +355,7 @@ class BM1366Miner:
                 if sent == 0:
                     raise RuntimeError("Serial connection broken")
                 total_sent += sent
-            if self.debug_bm1366:
+            if self.debug_bm1366 or self.debug_bm1362:
                 logging.debug("-> %s", bytearray(data).hex())
 
     def _serial_rx_func(self, size, timeout_ms):
@@ -359,7 +364,7 @@ class BM1366Miner:
         data = self.serial_port.read(size)
         bytes_read = len(data)
 
-        if self.debug_bm1366 and bytes_read > 0:
+        if self.debug_bm1366 or self.debug_bm1362 and bytes_read > 0:
             logging.debug("serial_rx: %d", bytes_read)
             logging.debug("<- %s", data.hex())
 
