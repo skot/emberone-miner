@@ -1,9 +1,6 @@
 # Hardware
 
-PiAxe-Miner is the software needed to run the PiAxe and QAxe.
-
-The repository with design files, BOM, ... can be found [here](https://github.com/shufps/piaxe)!
-
+Project to add testing support for the [emberOne/00](https://github.com/the-256-foundation/emberone)
 
 # Stratum Client Software
 
