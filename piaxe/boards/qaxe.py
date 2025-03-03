@@ -1,6 +1,6 @@
 import logging
 import threading
-import serial
+import serial # type: ignore
 import time
 import binascii
 

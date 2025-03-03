@@ -31,7 +31,7 @@ import piaxe
 import signal
 import os
 import datetime
-import yaml
+import yaml # type: ignore
 
 # Subscription state
 class Subscription(object):

@@ -3,7 +3,7 @@ import time
 
 
 try:
-    import serial
+    import serial # type: ignore
 except:
     pass
 

@@ -1,13 +1,13 @@
 
 
-import serial
+import serial # type: ignore
 import time
 import logging
 import random
 import copy
 import os
 import math
-import yaml
+import yaml # type: ignore
 import json
 
 import threading
