@@ -162,7 +162,7 @@ class ClockManager:
 
 class BM1362:
     def __init__(self):
-        self.chip_id_response="aa5513620000"
+        self.chip_id_response="aa5513620300000000001e"
 
     def ll_init(self, _serial_tx_func, _serial_rx_func, _reset_func):
         self.serial_tx_func = _serial_tx_func

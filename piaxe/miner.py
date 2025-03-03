@@ -50,7 +50,6 @@ class Job(shared.Job):
     ):
         super().__init__(job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime, extranonce1, extranonce2_size, max_nonce)
 
-
 class BM1366Miner:
     def __init__(self, config, address, network):
         self.config = config
@@ -128,10 +127,10 @@ class BM1366Miner:
         if self.miner == 'bitcrane':
             self.hardware = bitcrane.BitcraneHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
-        if self.miner == 'emberone':
+        elif self.miner == 'emberone':
             self.hardware = emberone.EmberoneHardware(self.config[self.miner])
             self.asics = bm1362.BM1362()
-        if self.miner == 'piaxe':
+        elif self.miner == 'piaxe':
             self.hardware = piaxe.RPiHardware(self.config[self.miner])
             self.asics = bm1366.BM1366()
         elif self.miner == "qaxe":
@@ -355,7 +354,7 @@ class BM1366Miner:
                 if sent == 0:
                     raise RuntimeError("Serial connection broken")
                 total_sent += sent
-            if self.debug_bm1366 or self.debug_bm1362:
+            if self.debug_bm1366:
                 logging.debug("-> %s", bytearray(data).hex())
 
     def _serial_rx_func(self, size, timeout_ms):
@@ -364,7 +363,7 @@ class BM1366Miner:
         data = self.serial_port.read(size)
         bytes_read = len(data)
 
-        if self.debug_bm1366 or self.debug_bm1362 and bytes_read > 0:
+        if self.debug_bm1366 and bytes_read > 0:
             logging.debug("serial_rx: %d", bytes_read)
             logging.debug("<- %s", data.hex())
 
@@ -470,7 +469,7 @@ class BM1366Miner:
                 #if self.debug_bm1366:
                 #    logging.debug("<- %s", bytes(data).hex())
 
-                asic_result = bm1366.AsicResult().from_bytes(bytes(data))
+                asic_result = bm1362.AsicResult().from_bytes(bytes(data))
                 if not asic_result or not asic_result.nonce:
                     continue
 
@@ -618,7 +617,7 @@ class BM1366Miner:
                 self._internal_id += 1
                 self._latest_work_id = self.asics.get_job_id(self._internal_id)
 
-                work = bm1366.WorkRequest()
+                work = bm1362.WorkRequest()
                 logging.debug("new work %02x", self._latest_work_id)
                 work.create_work(
                     self._latest_work_id,
