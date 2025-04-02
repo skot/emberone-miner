@@ -274,6 +274,7 @@ class BM1362:
 
 
     def send_init(self, frequency, expected, chips_enabled = None):
+        logging.info("Sending BM1362 Init")
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF]) #enable and set version rolling mask to 0xFFFF
 
         chip_counter = self.count_asic_chips()
@@ -295,7 +296,8 @@ class BM1362:
         # misc block
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x85, 0x40]) #command all chips, write chip address 00, register 3C, data 80 00 85 40 - Core Register Control
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x80, 0x08]) #command all chips, write chip address 00, register 3C, data 80 00 80 80 - Core Register Control
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x14, 0x00, 0x00, 0x00, 0xFF]) #command all chips, write chip address 00, register 14, data 00 00 00 FF - set ticket mask 
+        #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x14, 0x00, 0x00, 0x00, 0xFF]) #command all chips, write chip address 00, register 14, data 00 00 00 FF - set ticket mask 
+        self.set_job_difficulty_mask(512)
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x54, 0x00, 0x00, 0x00, 0x03]) #command all chips, write chip address 00, register 54, data 00 00 00 03 - Analog Mux Control
         self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x58, 0x00, 0x01, 0x11, 0x11]) #command all chips, write chip address 00, register 58, data 00 01 11 11 - Set the IO Driver Strength on chip 00
 

@@ -151,8 +151,7 @@ class BM1366Miner:
         self.serial_port = self.hardware.serial_port()
 
         # set the hardware dependent functions for serial and reset
-        self.asics.ll_init(self._serial_tx_func, self._serial_rx_func,
-                       self.hardware.reset_func)
+        self.asics.ll_init(self._serial_tx_func, self._serial_rx_func, self.hardware.reset_func)
 
 
         # default is: enable all chips
@@ -355,7 +354,7 @@ class BM1366Miner:
                     raise RuntimeError("Serial connection broken")
                 total_sent += sent
             if self.debug_bm1366:
-                logging.debug("-> %s", bytearray(data).hex())
+                logging.debug("-> %s", ' '.join(f'{byte:02X}' for byte in data))
 
     def _serial_rx_func(self, size, timeout_ms):
         self.serial_port.timeout = timeout_ms / 1000.0
@@ -364,8 +363,8 @@ class BM1366Miner:
         bytes_read = len(data)
 
         if self.debug_bm1366 and bytes_read > 0:
-            logging.debug("serial_rx: %d", bytes_read)
-            logging.debug("<- %s", data.hex())
+            # logging.debug("serial_rx: %d", bytes_read)
+            logging.debug("<- %s", ' '.join(f'{byte:02X}' for byte in data))
 
         return data if bytes_read > 0 else None
 
