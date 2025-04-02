@@ -164,7 +164,8 @@ class BM1362:
     def __init__(self):
         self.chip_id_response="aa5513620300000000001e"
 
-    def ll_init(self, _serial_tx_func, _serial_rx_func, _reset_func):
+    def ll_init(self, _serial_tx_func, _serial_rx_func, _reset_func, _board_init_func):
+        self.board_init = _board_init_func
         self.serial_tx_func = _serial_tx_func
         self.serial_rx_func = _serial_rx_func
         self.reset_func = _reset_func
@@ -343,6 +344,7 @@ class BM1362:
         logging.info("Initializing BM1362")
 
         self.reset()
+        self.board_init()
 
         return self.send_init(frequency, expected, chips_enabled)
 

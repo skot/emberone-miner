@@ -151,7 +151,7 @@ class BM1366Miner:
         self.serial_port = self.hardware.serial_port()
 
         # set the hardware dependent functions for serial and reset
-        self.asics.ll_init(self._serial_tx_func, self._serial_rx_func, self.hardware.reset_func)
+        self.asics.ll_init(self._serial_tx_func, self._serial_rx_func, self.hardware.reset_func, self.hardware.board_init)
 
 
         # default is: enable all chips
