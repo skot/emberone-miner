@@ -60,6 +60,9 @@ class BitcraneHardware(board.Board):
     def set_led(self, state):
         pass
 
+    def board_init(self):
+        pass
+
     def reset_func(self, state):
         self.rst_plug_gpio.write(0x00)
         time.sleep(0.5)

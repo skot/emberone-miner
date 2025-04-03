@@ -32,10 +32,13 @@ def prettyHex(data):
   
 
 def DS4432U_set_voltage(vout):
+
+    vout = vout / 1000.0  # convert to volts
+    print("Setting voltage to %f" % vout)
     # make sure the requested voltage is in within range of BITAXE_VMIN and BITAXE_VMAX
     if (vout >= EMBER_VMAX) or (vout <= EMBER_VMIN):
         print("Requested voltage is out of range")
-        return
+        return 0
 
     # this is the transfer function. comes from the DS4432U+ datasheet
     change = fabs((((LM25119_VFB / EMBER_RB) - ((vout - LM25119_VFB) / EMBER_RA)) / EMBER_IFS) * 127.0)
@@ -51,6 +54,7 @@ class EmberoneHardware(board.Board):
 
     def __init__(self, config):
         self.config = config
+        self.asic_voltage = self.config['asic_voltage']
 
         # Initialize serial communication
         self._serial_port_asic = serial.Serial(
@@ -106,7 +110,7 @@ class EmberoneHardware(board.Board):
         time.sleep(0.5)
 
     def board_init(self):
-        DS4432U_set_voltage(value)
+        self.DS4432U_set_current_code(0, DS4432U_set_voltage(self.asic_voltage))
         time.sleep(0.1)
         self.gpio_set(0x01, 1)  # Set PWR_EN GPIO pin 1 high
 

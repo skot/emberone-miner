@@ -341,10 +341,11 @@ class BM1362:
         self.reset_func()
 
     def init(self, frequency, expected, chips_enabled = None):
+        logging.info("Initializing emberOne Board")
+        self.board_init()
         logging.info("Initializing BM1362")
 
         self.reset()
-        self.board_init()
 
         return self.send_init(frequency, expected, chips_enabled)
 

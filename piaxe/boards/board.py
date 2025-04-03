@@ -19,6 +19,9 @@ class Board:
 
     def get_asic_frequency(self):
         return self.config['asic_frequency']
+    
+    def get_asic_voltage(self):
+        return self.config['asic_voltage']
 
     def get_name(self):
         return self.config['name']

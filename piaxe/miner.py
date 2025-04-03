@@ -50,7 +50,7 @@ class Job(shared.Job):
     ):
         super().__init__(job_id, prevhash, coinb1, coinb2, merkle_branches, version, nbits, ntime, extranonce1, extranonce2_size, max_nonce)
 
-class BM1366Miner:
+class ASICMiner:
     def __init__(self, config, address, network):
         self.config = config
 
@@ -153,10 +153,8 @@ class BM1366Miner:
         # set the hardware dependent functions for serial and reset
         self.asics.ll_init(self._serial_tx_func, self._serial_rx_func, self.hardware.reset_func, self.hardware.board_init)
 
-
         # default is: enable all chips
         chips_enabled = self.config[self.miner].get('chips_enabled', None)
-
 
         max_retries = 5  # Maximum number of attempts
 

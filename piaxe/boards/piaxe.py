@@ -59,6 +59,9 @@ class RPiHardware(board.Board):
     def set_fan_speed(self, channel, speed):
         pass
 
+    def board_init(self):
+        pass
+
     def read_temperature_and_voltage(self):
         data = self._bus.read_i2c_block_data(self.lm75_address, 0, 2)
         # Convert the data to 12-bits

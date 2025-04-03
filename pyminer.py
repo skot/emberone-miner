@@ -566,14 +566,14 @@ if __name__ == '__main__':
 
   suggest_difficulty = config.get('suggest_difficulty', None)
 
-  piaxeMiner = miner.BM1366Miner(config, address, network)
-  piaxeMiner.init()
+  asicMiner = miner.ASICMiner(config, address, network)
+  asicMiner.init()
 
   # Heigh-ho, heigh-ho, it's off to work we go...
 
   while True:
     try:
-      pyminer = Miner(options.url, username, password, piaxeMiner, suggest_difficulty)
+      pyminer = Miner(options.url, username, password, asicMiner, suggest_difficulty)
       pyminer.serve()
     except Exception as e:
       logging.error("exception in serve ... restarting client")

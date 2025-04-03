@@ -47,6 +47,9 @@ class QaxeHardware(board.Board):
 
     def _is_power_good(self):
         return True
+    
+    def board_init(self):
+        pass
 
     def set_fan_speed(self, channel, speed):
         if channel == 0:
