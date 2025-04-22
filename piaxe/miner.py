@@ -392,12 +392,14 @@ class BM1366Miner:
         current_time = time.time()
         total_work = 0
 
+        chip_difficulty = self.hardware.chip_difficulty
+
         #min_timestamp = current_time
         #max_timestamp = 0
-        for shares, difficulty, timestamp in self.shares:
+        for shares, timestamp in self.shares:
             # Consider shares only in the last 10 minutes
             if current_time - timestamp <= time_period:
-                total_work += shares * (difficulty << 32)
+                total_work += shares * (chip_difficulty << 32)
                 #min_timestamp = min(min_timestamp, timestamp)
                 #max_timestamp = max(max_timestamp, timestamp)
 
@@ -425,7 +427,7 @@ class BM1366Miner:
 
         self._difficulty = difficulty
         self._set_target(shared.calculate_target(difficulty))
-        self.asics.set_job_difficulty_mask(difficulty)
+        #self.asics.set_job_difficulty_mask(difficulty)
 
         with self.stats.lock:
             self.stats.difficulty = difficulty
@@ -493,6 +495,8 @@ class BM1366Miner:
                     job = saved_job['job']
                     work = saved_job['work']
                     difficulty = saved_job['difficulty']
+
+                    chip_difficulty = self.hardware.chip_difficulty
 
                     if result_job_id != work.id:
                         logging.error("mismatch ids")
@@ -562,13 +566,16 @@ class BM1366Miner:
                         self.stats.valid_shares += 1 if is_valid else 0
 
                         # don't add to shares if it's invalid or it's a duplicate
-                        if is_valid and not duplicate:
-                            self.shares.append((1, difficulty, time.time()))
+                        #if is_valid and not duplicate:
+                        self.shares.append((1, time.time()))
 
                         self.stats.hashing_speed = self.hash_rate()
                         hash_difficulty = shared.calculate_difficulty_from_hash(hash)
                         self.stats.best_difficulty = max(self.stats.best_difficulty, hash_difficulty)
                         self.stats.total_best_difficulty = max(self.stats.total_best_difficulty, hash_difficulty)
+
+                        #debug the hash difficulty
+                        logging.debug("hash difficulty: %d of %d", hash_difficulty, difficulty)
 
                     # restart miner with new extranonce2
                     #self.new_job_event.set() TODO
@@ -579,7 +586,7 @@ class BM1366Miner:
                     # if its invalid it would be rejected
                     # we don't try it but we can count it to not_accepted
                     self.not_accepted_callback()
-                    logging.error("invalid result!")
+                    # logging.error("invalid result!")
                     continue
 
 
