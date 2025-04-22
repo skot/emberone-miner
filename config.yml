@@ -27,9 +27,11 @@ bitcrane:
   fan_speed: 0.25
 
 emberone:
-  name: emberOne/00
+  name: emberOne00
   chips: 12
-  asic_frequency: 300
+  chip_difficulty: 1024
+  asic_frequency: 400 #MHz
+  asic_voltage: 3400 #mV
   extranonce2_interval: 1.5
   serial_port_asic: "/dev/tty.usbmodemb310cc523"
   serial_port_ctrl: "/dev/tty.usbmodemb310cc521"
