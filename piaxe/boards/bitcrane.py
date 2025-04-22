@@ -38,6 +38,7 @@ class BitcraneHardware(board.Board):
                                                             timeout=1)
 
         self.set_fan_speed(0, config['fan_speed'])
+        self.chip_difficulty = self.config['chip_difficulty']
 
     def set_fan_speed(self, channel, percent):
         pwm_value = int(255 * percent)

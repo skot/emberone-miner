@@ -19,6 +19,7 @@ class QaxeHardware(board.Board):
         self.state_power = 0;
         self.pwm1 = self.config.get('fan_speed_1', 100)
         self.pwm2 = self.config.get('fan_speed_2', 0)
+        self.chip_difficulty = self.config['chip_difficulty']
 
         self.reqid = 0
         self.serial_port_ctrl_lock = threading.Lock()

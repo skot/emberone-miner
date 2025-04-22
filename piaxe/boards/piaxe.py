@@ -24,6 +24,7 @@ class RPiHardware(board.Board):
         self.nrst_pin = self.config['nrst_pin']
         self.led_pin = self.config['led_pin']
         self.lm75_address = self.config['lm75_address']
+        self.chip_difficulty = self.config['chip_difficulty']
 
         # Initialize GPIO Pins
         GPIO.setup(self.sdn_pin, GPIO.OUT, initial=GPIO.LOW)
