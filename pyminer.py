@@ -567,7 +567,13 @@ if __name__ == '__main__':
   suggest_difficulty = config.get('suggest_difficulty', None)
 
   asicMiner = miner.ASICMiner(config, address, network)
-  asicMiner.init()
+
+  try:
+    asicMiner.init()
+  except Exception as e:  
+    logging.error("init failed: %s", e)
+    sys.exit(1)
+ 
 
   # Heigh-ho, heigh-ho, it's off to work we go...
 

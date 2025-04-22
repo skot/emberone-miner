@@ -415,7 +415,7 @@ def verify_work(difficulty, job, result):
     hash_str = bytearray(hash_be).hex()
     leading_zeros = count_leading_zeros(hash_str)
 
-    return hash_str < target, hash_str, leading_zeros
+    return hash_str <= target, hash_str, leading_zeros
 
 def get_network_target(difficulty):
     target = int_to_hex256(calculate_target(difficulty))

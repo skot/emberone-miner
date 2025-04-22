@@ -131,7 +131,6 @@ class ClockManager:
             self.clocks = [clocks for i in range(0, self.num_asics)]
 
     def set_clock(self, id, clock):
-        logging.info(f"setting clock of {id} to {clock}")
         try:
             self.bm1362.send_hash_frequency2(id, clock)
             # all
@@ -268,6 +267,7 @@ class BM1362:
                 continue
 
             chip_counter += 1
+            print(chip_counter)
 
         self.send(TYPE_CMD | GROUP_ALL | CMD_INACTIVE, [0x00, 0x00])
 
@@ -444,105 +444,4 @@ class BM1362:
         return asic_result
 
     def try_get_temp_from_response(self, response : AsicResult):
-        return (None, None)
-
-
-class BM1368(BM1362):
-    def __init__(self):
-        self.chip_id_response="aa5513680000"
-
-    def get_job_id_from_result(self, job_id):
-        return (job_id & 0xf0) >> 1
-
-    def get_job_id(self, job_id):
-        # job-IDs: 00, 18, 30, 48, 60, 78, 10, 28, 40, 58, 70, 08, 20, 38, 50, 68
-        return (job_id * 24) & 0x7f
-
-    def clear_serial_buffer(self):
-        while True:
-            data = self.serial_rx_func(11, 5000)
-            if data is None:
-                return
-
-    def send_init(self, frequency, expected, chips_enabled = None):
-        self.clear_serial_buffer()
-
-        # enable and set version rolling mask to 0xFFFF
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-        # enable and set version rolling mask to 0xFFFF again
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-        # enable and set version rolling mask to 0xFFFF again
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-        # enable and set version rolling mask to 0xFFFF again
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-
-        chip_counter = self.count_asic_chips()
-
-        if chip_counter != expected:
-            raise Exception(f"chips mismatch. expected: {expected}, actual: {chip_counter}")
-
-        # enable and set version rolling mask to 0xFFFF again
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-        # Reg_A8
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xa8, 0x00, 0x07, 0x00, 0x00])
-        # Misc Control
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x18, 0xff, 0x0f, 0xc1, 0x00])
-
-        for id in range(0, chip_counter):
-            self.set_chip_address(id * 2)
-
-        # Core Register Control
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x8b, 0x00])
-        # Core Register Control
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x3C, 0x80, 0x00, 0x80, 0x18])
-        # set ticket mask
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x14, 0x00, 0x00, 0x00, 0xFF])
-        # Analog Mux Control
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x54, 0x00, 0x00, 0x00, 0x03])
-        # Set the IO Driver Strength
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x58, 0x02, 0x11, 0x11, 0x11])
-
-        for id in range(0, chip_counter):
-            if chips_enabled is not None and id not in chips_enabled:
-                continue
-
-            # Reg_A8
-            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0xA8, 0x00, 0x07, 0x01, 0xF0])
-            # Misc Control
-            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x18, 0xF0, 0x00, 0xC1, 0x00])
-            # Core Register Control
-            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x8b, 0x00])
-            # Core Register Control
-            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x80, 0x18])
-            # Core Register Control
-            self.send(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, [id*2, 0x3C, 0x80, 0x00, 0x82, 0xAA])
-            time.sleep(0.500)
-
-        self.clock_manager = ClockManager(self, frequency, chip_counter)
-        self.clock_manager.do_frequency_ramp_up(frequency)
-
-        # change baud
-        #self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x28, 0x11, 0x30, 0x02, 0x00])
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0x10, 0x00, 0x00, 0x15, 0xa4])
-        self.send(TYPE_CMD | GROUP_ALL | CMD_WRITE, [0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF])
-
-        return chip_counter
-
-
-    def request_temps(self):
-        self.send_simple([0x55, 0xAA, 0x51, 0x09, 0x00, 0xB0, 0x80, 0x00, 0x00, 0x00, 0x0F])
-        self.send_simple([0x55, 0xAA, 0x51, 0x09, 0x00, 0xB0, 0x00, 0x02, 0x00, 0x00, 0x1F])
-        self.send_simple([0x55, 0xAA, 0x51, 0x09, 0x00, 0xB0, 0x01, 0x02, 0x00, 0x00, 0x16])
-        self.send_simple([0x55, 0xAA, 0x51, 0x09, 0x00, 0xB0, 0x10, 0x02, 0x00, 0x00, 0x1B])
-        self.send_simple([0x55, 0xAA, 0x52, 0x05, 0x00, 0xB4, 0x1B])
-
-    def try_get_temp_from_response(self, response : AsicResult):
-        # temp response has this pattern
-        # aa55 8000080c 00 b4 0000 1a
-        if response.nonce & 0x0000ffff == 0x00000080 and response.job_id == 0xb4:
-            value = (response.nonce & 0xff000000) >> 24 | (response.nonce & 0x00ff0000) >> 8
-            id = response.midstate_num // 2
-
-            return (value, id)
-
         return (None, None)
