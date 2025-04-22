@@ -21,6 +21,7 @@ class EmberoneHardware(board.Board):
     def __init__(self, config):
         self.config = config
         self.asic_voltage = self.config['asic_voltage']
+        self.chip_difficulty = self.config['chip_difficulty']
 
         # Initialize serial communication
         self._serial_port_asic = serial.Serial(
