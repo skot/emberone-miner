@@ -392,8 +392,6 @@ class BM1366Miner:
         current_time = time.time()
         total_work = 0
 
-        chip_difficulty = self.hardware.chip_difficulty
-
         #min_timestamp = current_time
         #max_timestamp = 0
         for shares, timestamp in self.shares:
@@ -565,8 +563,6 @@ class BM1366Miner:
                         self.stats.invalid_shares += 1 if not is_valid else 0
                         self.stats.valid_shares += 1 if is_valid else 0
 
-                        # don't add to shares if it's invalid or it's a duplicate
-                        #if is_valid and not duplicate:
                         self.shares.append((1, time.time()))
 
                         self.stats.hashing_speed = self.hash_rate()
