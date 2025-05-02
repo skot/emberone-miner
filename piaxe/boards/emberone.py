@@ -89,9 +89,7 @@ class EmberoneHardware(board.Board):
         time.sleep(0.5)
 
     def board_init(self):
-        #DS4432U.set_voltage(self._serial_port_ctrl, self.asic_voltage)
-        #time.sleep(0.1)
-        #DS4432U.enable_vreg(self._serial_port_ctrl, 1)
+        DS4432U.ramp_voltage(self._serial_port_ctrl, self.asic_voltage)
         INA260.init(self._serial_port_ctrl)
         #pass
 

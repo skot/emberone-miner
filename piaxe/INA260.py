@@ -76,26 +76,26 @@ def prettyHex(data):
 def init(ser):
     # Configure the INA260
     config_setting = (INA260_TIME_1_1_ms << 3) | (INA260_TIME_1_1_ms << 6) | (INA260_COUNT_128 << 9)
-    i2c_send_bytes(ser, INA260_I2CADDR_DEFAULT, INA260_REG_CONFIG, [((config_setting >> 8) & 0xFF), (config_setting & 0xFF)], 2, True)
+    i2c_send_bytes(ser, INA260_I2CADDR_DEFAULT, INA260_REG_CONFIG, [((config_setting >> 8) & 0xFF), (config_setting & 0xFF)], 2)
     time.sleep(0.1)
 
 def read_current(ser):
 
-    data = i2c_read_bytes(ser, 0xBB, INA260_I2CADDR_DEFAULT, INA260_REG_CURRENT, 2, True)
+    data = i2c_read_bytes(ser, 0xBB, INA260_I2CADDR_DEFAULT, INA260_REG_CURRENT, 2)
     # print("Raw Current = %02X %02X" % (data[1], data[0]))
 
     return (data[1] | (data[0] << 8)) * INA260_CURRENT_FACTOR
 
 def read_voltage(ser):
 
-    data = i2c_read_bytes(ser, 0xCC, INA260_I2CADDR_DEFAULT, INA260_REG_BUSVOLTAGE, 2, True)
+    data = i2c_read_bytes(ser, 0xCC, INA260_I2CADDR_DEFAULT, INA260_REG_BUSVOLTAGE, 2)
     # print("Raw Voltage = %02X %02X" % (data[1], data[0]))
 
     return (data[1] | (data[0] << 8)) * INA260_VOLTAGE_FACTOR
 
 def read_power(ser):
 
-    data = i2c_read_bytes(ser, 0xDD, INA260_I2CADDR_DEFAULT, INA260_REG_POWER, 2, True)
+    data = i2c_read_bytes(ser, 0xDD, INA260_I2CADDR_DEFAULT, INA260_REG_POWER, 2)
     # print("Raw Power = %02X %02X" % (data[1], data[0]))
 
     return (data[1] | (data[0] << 8)) * INA260_POWER_FACTOR

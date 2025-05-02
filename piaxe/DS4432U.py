@@ -1,6 +1,7 @@
 import serial
 import time
 from math import ceil, fabs
+import numpy as np
 
 # DS4432U+ -- Adjustable current DAC
 DS4432U_SENSOR_ADDR = 0x48  # Slave address of the DS4432U+
@@ -19,6 +20,10 @@ LM25119_VFB = 0.8
 EMBER_VNOM = (LM25119_VFB * (EMBER_RA + EMBER_RB)) / EMBER_RB
 EMBER_VMAX = 4.324
 EMBER_VMIN = 2.875
+
+START_VOLTAGE = 2.9
+INCREMENT = 0.05  # Increment for voltage ramping
+INCREMENT_DELAY = 0.5  # Delay between increments in seconds
 
 def gpio_set(ser, pin, value):
     # Construct the command to set the GPIO pin
@@ -63,3 +68,21 @@ def set_voltage(ser, vout):
         code |= 0x80
 
     _set_current_code(ser, 0, code)
+
+def ramp_voltage(ser, end):
+    if START_VOLTAGE > end:
+        raise ValueError("Start voltage %.2f is larger than end voltage %.2f" % (START_VOLTAGE, end))
+    if end < EMBER_VMIN:
+        raise ValueError("%.2f is less than EMBER_VMIN %.2f" % (end, EMBER_VMIN))
+
+    # Ramp the voltage from start to end
+    print("Setting voltage to %.2f" % START_VOLTAGE)
+    set_voltage(ser, START_VOLTAGE)
+    time.sleep(INCREMENT_DELAY)
+    enable_vreg(ser, 1)  # Set PWR_EN GPIO pin 1 high
+    time.sleep(INCREMENT_DELAY)
+
+    for voltage in np.arange(START_VOLTAGE+INCREMENT, end, INCREMENT):
+        print("Setting voltage to %.2f" % voltage)
+        set_voltage(ser, voltage)
+        time.sleep(INCREMENT_DELAY)
