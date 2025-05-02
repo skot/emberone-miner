@@ -2,6 +2,7 @@ import serial
 import time
 from math import ceil, fabs
 import numpy as np
+import logging
 
 # DS4432U+ -- Adjustable current DAC
 DS4432U_SENSOR_ADDR = 0x48  # Slave address of the DS4432U+
@@ -29,12 +30,12 @@ def gpio_set(ser, pin, value):
     # Construct the command to set the GPIO pin
     command = bytes([0x07, 0x00, 0x00, 0x00, 0x06, pin, value])
     ser.write(command)
-    print("Sent: %s" % prettyHex(command))
+    logging.debug("Sent: %s" % prettyHex(command))
 
 def i2c_send_bytes(ser, address, register, data):
      packet = bytes([0x09, 0x00, 0x01, 0x00, 0x05, 0x20, address, register, data])
      ser.write(packet)
-     print("Sent: %s" % prettyHex(packet))
+     logging.debug("Sent: %s" % prettyHex(packet))
      
 
 def prettyHex(data):
@@ -42,21 +43,21 @@ def prettyHex(data):
 
 def enable_vreg(ser, enable):
     if enable:
-        print("Enabling voltage regulator")
+        logging.info("Enabling voltage regulator")
     else:
-        print("Disabling voltage regulator")
+        logging.info("Disabling voltage regulator")
     gpio_set(ser, 0x01, enable)
         
 
 def _set_current_code(ser, output, code):
     reg = DS4432U_OUT0_REG if (output == 0) else DS4432U_OUT1_REG
-    print("I2C Setting reg %02X to %02X" % (reg, code))
+    logging.debug("I2C Setting reg %02X to %02X" % (reg, code))
     i2c_send_bytes(ser, DS4432U_SENSOR_ADDR, reg, code)
 
 def set_voltage(ser, vout):
     # make sure the requested voltage is in within range of BITAXE_VMIN and BITAXE_VMAX
     if (vout >= EMBER_VMAX) or (vout <= EMBER_VMIN):
-        print("Requested voltage is out of range")
+        logging.error("Requested voltage is out of range")
         raise ValueError("Requested voltage is out of range")
 
     # this is the transfer function. comes from the DS4432U+ datasheet
@@ -83,6 +84,6 @@ def ramp_voltage(ser, end):
     time.sleep(INCREMENT_DELAY)
 
     for voltage in np.arange(START_VOLTAGE+INCREMENT, end, INCREMENT):
-        print("Setting voltage to %.2f" % voltage)
+        logging.info("Setting voltage to %.2f" % voltage)
         set_voltage(ser, voltage)
         time.sleep(INCREMENT_DELAY)

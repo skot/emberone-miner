@@ -59,15 +59,15 @@ class EmberoneHardware(board.Board):
             #self._serial_port_ctrl.reset_output_buffer()
             # Read temperature and voltage
             temp0 = TMP1075.read_temperature(self._serial_port_ctrl, 0)
-            print("temp0 = %.2f" % temp0)
+            #logging.debug("temp0 = %.2f" % temp0)
             temp1 = TMP1075.read_temperature(self._serial_port_ctrl, 1)
-            print("temp1 = %.2f" % temp1)
+            #logging.debug("temp1 = %.2f" % temp1)
             voltage = INA260.read_voltage(self._serial_port_ctrl)
-            print("voltage = %.2f" % voltage)
+            #logging.debug("voltage = %.2f" % voltage)
             current = INA260.read_current(self._serial_port_ctrl)
-            print("current = %.2f" % current)
+            #logging.debug("current = %.2f" % current)
             power = INA260.read_power(self._serial_port_ctrl)
-            print("power = %.2f" % power)
+            #logging.debug("power = %.2f" % power)
         except Exception as e:
             logging.error(f"Error reading temperature and voltage: {e}")
 

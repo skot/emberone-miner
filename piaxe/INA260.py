@@ -1,4 +1,5 @@
 import time
+import logging
 from math import ceil, fabs
 
 INA260_I2CADDR_DEFAULT      = 0x40 # INA260 default i2c address
@@ -38,34 +39,34 @@ def gpio_set(ser, pin, value):
     # Construct the command to set the GPIO pin
     command = bytes([0x07, 0x00, 0x00, 0x00, 0x06, pin, value])
     ser.write(command)
-    print("Sent: %s" % prettyHex(command))
+    logging.debug("Sent: %s" % prettyHex(command))
 
 def i2c_send_bytes(ser, address, register, data, len, debug=False):
     packet = bytes([0x08+len, 0x00, 0x01, 0x00, 0x05, 0x20, address, register] + data)
     ser.write(packet)
     if debug:
-        print("ctrl tx: [%s]" % prettyHex(packet))
+        logging.debug("ctrl tx: [%s]" % prettyHex(packet))
 
 def i2c_read_bytes(ser, id, address, register, size, debug=False):
     ser.reset_input_buffer()
     packet = bytes([0x09, 0x00, id, 0x00, 0x05, 0x40, address, register, size])
     ser.write(packet)
     if debug:
-        print("ctrl tx: [%s]" % prettyHex(packet))
+        logging.debug("ctrl tx: [%s]" % prettyHex(packet))
     data = ser.read(size+3)
     if data:
         bytes_read = len(data)
         if bytes_read > 0:
             if debug:
-                print("ctrl rx: [%s]" % prettyHex(data))
+                logging.debug("ctrl rx: [%s]" % prettyHex(data))
             if data[2] != id:
-                print("Error: ID mismatch. Expected %02X, got %02X" % (id, data[2]))
+                logging.error("Error: ID mismatch. Expected %02X, got %02X" % (id, data[2]))
                 return None
         else:
-            print("No data received")
+            logging.error("No data received")
             return None
     else:
-        print("No data received")
+        logging.error("No data received")
         return None
 
     return data[-size:]
@@ -82,21 +83,21 @@ def init(ser):
 def read_current(ser):
 
     data = i2c_read_bytes(ser, 0xBB, INA260_I2CADDR_DEFAULT, INA260_REG_CURRENT, 2)
-    # print("Raw Current = %02X %02X" % (data[1], data[0]))
+    # logging.debug("Raw Current = %02X %02X" % (data[1], data[0]))
 
     return (data[1] | (data[0] << 8)) * INA260_CURRENT_FACTOR
 
 def read_voltage(ser):
 
     data = i2c_read_bytes(ser, 0xCC, INA260_I2CADDR_DEFAULT, INA260_REG_BUSVOLTAGE, 2)
-    # print("Raw Voltage = %02X %02X" % (data[1], data[0]))
+    # logging.debug("Raw Voltage = %02X %02X" % (data[1], data[0]))
 
     return (data[1] | (data[0] << 8)) * INA260_VOLTAGE_FACTOR
 
 def read_power(ser):
 
     data = i2c_read_bytes(ser, 0xDD, INA260_I2CADDR_DEFAULT, INA260_REG_POWER, 2)
-    # print("Raw Power = %02X %02X" % (data[1], data[0]))
+    # logging.debug("Raw Power = %02X %02X" % (data[1], data[0]))
 
     return (data[1] | (data[0] << 8)) * INA260_POWER_FACTOR
 
