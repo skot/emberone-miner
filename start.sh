@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 ./pyminer.py -o stratum+tcp://public-pool.io:21496 -d -P -u bc1qqkredrrxc0pqjpcyp8ku3ry46e40tp40zrf0k0.emberone -p x
+python3 ./pyminer.py -o stratum+tcp://stratum.hydrapool.org:3333 -d -P -u emberone000001 -p x

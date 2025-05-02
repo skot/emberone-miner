@@ -28,8 +28,21 @@ def i2c_read_bytes(ser, id, address, register, size, debug=False):
     if debug:
         print("ctrl tx: [%s]" % prettyHex(packet))
     data = ser.read(size+3)
-    if debug:
-        print("ctrl rx: [%s]" % prettyHex(data))
+    if data:
+        bytes_read = len(data)
+        if bytes_read > 0:
+            if debug:
+                print("ctrl rx: [%s]" % prettyHex(data))
+            if data[2] != id:
+                print("Error: ID mismatch. Expected %02X, got %02X" % (id, data[2]))
+                return None
+        else:
+            print("No data received")
+            return None
+    else:
+        print("No data received")
+        return None
+
     return data[-size:]
      
 def prettyHex(data):

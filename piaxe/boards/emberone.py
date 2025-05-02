@@ -54,12 +54,20 @@ class EmberoneHardware(board.Board):
 
         temp0, temp1, voltage, current, power = None, None, None, None, None
         try:
+            #clear the serial buffer
+            self._serial_port_ctrl.reset_input_buffer()
+            #self._serial_port_ctrl.reset_output_buffer()
+            # Read temperature and voltage
             temp0 = TMP1075.read_temperature(self._serial_port_ctrl, 0)
+            print("temp0 = %.2f" % temp0)
             temp1 = TMP1075.read_temperature(self._serial_port_ctrl, 1)
+            print("temp1 = %.2f" % temp1)
             voltage = INA260.read_voltage(self._serial_port_ctrl)
+            print("voltage = %.2f" % voltage)
             current = INA260.read_current(self._serial_port_ctrl)
+            print("current = %.2f" % current)
             power = INA260.read_power(self._serial_port_ctrl)
-
+            print("power = %.2f" % power)
         except Exception as e:
             logging.error(f"Error reading temperature and voltage: {e}")
 
@@ -84,7 +92,8 @@ class EmberoneHardware(board.Board):
         #DS4432U.set_voltage(self._serial_port_ctrl, self.asic_voltage)
         #time.sleep(0.1)
         #DS4432U.enable_vreg(self._serial_port_ctrl, 1)
-        pass
+        INA260.init(self._serial_port_ctrl)
+        #pass
 
     def shutdown(self):
         # disable buck converter
