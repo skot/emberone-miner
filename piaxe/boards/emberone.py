@@ -4,6 +4,7 @@ from math import ceil, fabs
 from .. import DS4432U
 from .. import INA260
 from .. import TMP1075
+from .. import TMP451
 from .. import led
 
 try:
@@ -60,7 +61,7 @@ class EmberoneHardware(board.Board):
             # Read temperature and voltage
             temp0 = TMP1075.read_temperature(self._serial_port_ctrl, 0)
             #logging.debug("temp0 = %.2f" % temp0)
-            temp1 = TMP1075.read_temperature(self._serial_port_ctrl, 1)
+            temp1 = TMP451.read_temperature(self._serial_port_ctrl)
             #logging.debug("temp1 = %.2f" % temp1)
             voltage = INA260.read_voltage(self._serial_port_ctrl)
             #logging.debug("voltage = %.2f" % voltage)
