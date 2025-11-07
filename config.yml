@@ -1,6 +1,6 @@
 debug_bm1366: true
 verify_solo: false
-miner: emberone
+miner: jproadit
 
 # maybe doesn't work with all pools
 suggest_difficulty: 2048
@@ -32,6 +32,15 @@ emberone:
   chip_difficulty: 1024
   asic_frequency: 400 #MHz
   asic_voltage: 3.4 #V
+  extranonce2_interval: 1.5
+  serial_port_asic: "/dev/tty.usbmodemb310cc523"
+  serial_port_ctrl: "/dev/tty.usbmodemb310cc521"
+
+jproadit:
+  name: S19jProAdit
+  chips: 126
+  chip_difficulty: 16384
+  asic_frequency: 400 #MHz
   extranonce2_interval: 1.5
   serial_port_asic: "/dev/tty.usbmodemb310cc523"
   serial_port_ctrl: "/dev/tty.usbmodemb310cc521"

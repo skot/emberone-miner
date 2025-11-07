@@ -22,6 +22,7 @@ from . import rest
 from . import smartplug
 
 from .boards import emberone
+from .boards import jproadit
 from .boards import piaxe
 from .boards import qaxe
 from .boards import bitcrane
@@ -129,6 +130,9 @@ class ASICMiner:
             self.asics = bm1366.BM1366()
         elif self.miner == 'emberone':
             self.hardware = emberone.EmberoneHardware(self.config[self.miner])
+            self.asics = bm1362.BM1362()
+        elif self.miner == 'jproadit':
+            self.hardware = jproadit.JproAditHardware(self.config[self.miner])
             self.asics = bm1362.BM1362()
         elif self.miner == 'piaxe':
             self.hardware = piaxe.RPiHardware(self.config[self.miner])
