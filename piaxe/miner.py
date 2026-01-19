@@ -183,8 +183,17 @@ class ASICMiner:
 
         logging.info(f"{chip_counter} chips were found!")
 
-        self.set_difficulty(512)
+        # set the chip-level difficulty mask on the ASICs
+        chip_diff = self.hardware.get_chip_difficulty()
+        logging.info(f"Setting chip difficulty to {chip_diff}")
+        self.asics.set_job_difficulty_mask(chip_diff)
+
+        # initialize pool difficulty to chip difficulty (pool will update via stratum)
+        self.set_difficulty(chip_diff)
         self.extranonce2_interval = self.config[self.miner]["extranonce2_interval"]
+        self.max_temperature = self.config[self.miner].get("max_temperature", 70.0)
+        self.max_asic_temperature = self.config[self.miner].get("max_asic_temperature", 70.0)
+        self.hashrate_window = self.config[self.miner].get("hashrate_window_seconds", 600)
 
         self.temp_thread = threading.Thread(target=self._monitor_temperature)
         self.temp_thread.start()
@@ -327,21 +336,28 @@ class ASICMiner:
                 self.stats.vdomain3 = temp["voltage"][2]
                 self.stats.vdomain4 = temp["voltage"][3]
 
-                # inject asic temps into the temp dict for display
-                temp['asic_temp'] = [
+                # merge asic temps - use hardware values if present, otherwise use BM1368 internal sensor values
+                stats_asic_temps = [
                     self.stats.asic_temp1,
                     self.stats.asic_temp2,
                     self.stats.asic_temp3,
                     self.stats.asic_temp4
                 ]
+                for i in range(4):
+                    if temp['asic_temp'][i] is None:
+                        temp['asic_temp'][i] = stats_asic_temps[i]
 
             logging.info("temperature and voltage: %s", str(temp))
 
-
-
             for i in range(0, 4):
-                if temp["temp"][i] is not None and temp["temp"][i] > 70.0:
-                    logging.error("too hot, shutting down ...")
+                # check board temperature sensors
+                if temp["temp"][i] is not None and temp["temp"][i] > self.max_temperature:
+                    logging.error("board temp %d too hot (%.1f > %.1f), shutting down ...", i+1, temp["temp"][i], self.max_temperature)
+                    self.hardware.shutdown()
+                    os._exit(1)
+                # check ASIC temperature sensors
+                if temp["asic_temp"][i] is not None and temp["asic_temp"][i] > self.max_asic_temperature:
+                    logging.error("ASIC temp %d too hot (%.1f > %.1f), shutting down ...", i+1, temp["asic_temp"][i], self.max_asic_temperature)
                     self.hardware.shutdown()
                     os._exit(1)
 
@@ -542,6 +558,11 @@ class ASICMiner:
                     if hash < network_target:
                         logging.info("!!! it seems we found a block !!!")
 
+                    # count all chip-level shares for hash rate, excluding only duplicates
+                    # (must be done before any continue statements)
+                    if not duplicate:
+                        self.shares.append((1, time.time()))
+
                     # the hash isn't completly wrong but isn't lower than the target
                     # the asic uses power-of-two targets but the pool might not (eg ckpool)
                     # we should just pretend it didn't happen and not count it^^
@@ -570,11 +591,7 @@ class ASICMiner:
                         self.stats.invalid_shares += 1 if not is_valid else 0
                         self.stats.valid_shares += 1 if is_valid else 0
 
-                        # don't add to shares if it's invalid or it's a duplicate
-                        #if is_valid and not duplicate:
-                        self.shares.append((1, time.time()))
-
-                        self.stats.hashing_speed = self.hash_rate()
+                        self.stats.hashing_speed = self.hash_rate(self.hashrate_window)
                         hash_difficulty = shared.calculate_difficulty_from_hash(hash)
                         self.stats.best_difficulty = max(self.stats.best_difficulty, hash_difficulty)
                         self.stats.total_best_difficulty = max(self.stats.total_best_difficulty, hash_difficulty)

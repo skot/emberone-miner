@@ -253,6 +253,10 @@ class BM1362:
 
 
     def count_asic_chips(self):
+        # clear any stale data in the rx buffer
+        while self.serial_rx_func(11, 100) is not None:
+            pass
+
         self.send(TYPE_CMD | GROUP_ALL | CMD_READ, [0x00, 0x00])
 
         chip_counter = 0

@@ -49,13 +49,32 @@ def i2c_read_bytes(ser, id, address, register, size, debug=False):
 def prettyHex(data):
     return ' '.join(f'{byte:02X}' for byte in data)
 
-def read_temperature(ser, device_index):
+def read_air_temperature(ser, device_index, debug=False):
 
     if device_index == 0:
-        data = i2c_read_bytes(ser, 0xAA, TMP1075_I2CADDR_0, TMP1075_TEMP_REG, 2)
+        data = i2c_read_bytes(ser, 0xAA, TMP1075_I2CADDR_0, TMP1075_TEMP_REG, 2, debug)
     elif device_index == 1:
-        data = i2c_read_bytes(ser, 0xBB, TMP1075_I2CADDR_1, TMP1075_TEMP_REG, 2)
-    # logging.debug("Raw Temperature = %02X %02X" % (data[0], data[1]))
-    # logging.debug("Temperature[%d] = %d" % (device_index, data[0]))
+        data = i2c_read_bytes(ser, 0xBB, TMP1075_I2CADDR_1, TMP1075_TEMP_REG, 2, debug)
     
-    return data[0]
+    if data is None:
+        return None
+    
+    if debug:
+        logging.debug("Raw Temperature = %02X %02X" % (data[0], data[1]))
+    
+    # TMP1075 temperature is 12-bit, left-justified in 16 bits
+    # Combine bytes and shift right by 4 to get 12-bit value
+    raw_temp = (data[0] << 8) | data[1]
+    raw_temp = raw_temp >> 4
+    
+    # Convert to Celsius: each LSB = 0.0625°C
+    # Handle negative temperatures (two's complement for 12-bit)
+    if raw_temp & 0x800:  # Check sign bit
+        raw_temp = raw_temp - 4096
+    
+    temp_c = raw_temp * 0.0625
+    
+    if debug:
+        logging.debug("TMP1075[%d] Temperature: %.2f°C" % (device_index, temp_c))
+    
+    return temp_c

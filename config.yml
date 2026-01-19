@@ -1,6 +1,6 @@
 debug_bm1366: true
 verify_solo: false
-miner: jproadit
+miner: emberone
 
 # maybe doesn't work with all pools
 suggest_difficulty: 2048
@@ -31,8 +31,11 @@ emberone:
   chips: 12
   chip_difficulty: 1024
   asic_frequency: 400 #MHz
-  asic_voltage: 3.4 #V
-  extranonce2_interval: 1.5
+  asic_voltage: 3.3 #V
+  extranonce2_interval: 1
+  max_temperature: 70.0  # degrees C, (optional defaults to 70.0)
+  max_asic_temperature: 75.0   # ASIC temp limit (default 70.0)
+  hashrate_window_seconds: 60  # 1 minute (default is 600)
   serial_port_asic: "/dev/tty.usbmodemb310cc523"
   serial_port_ctrl: "/dev/tty.usbmodemb310cc521"
 

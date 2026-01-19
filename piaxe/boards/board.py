@@ -28,3 +28,6 @@ class Board:
 
     def get_chip_count(self):
         return self.config['chips']
+
+    def get_chip_difficulty(self):
+        return self.config.get('chip_difficulty', 512)

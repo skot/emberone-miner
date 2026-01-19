@@ -59,22 +59,23 @@ class EmberoneHardware(board.Board):
             self._serial_port_ctrl.reset_input_buffer()
             #self._serial_port_ctrl.reset_output_buffer()
             # Read temperature and voltage
-            temp0 = TMP1075.read_temperature(self._serial_port_ctrl, 0)
+            temp0 = TMP1075.read_air_temperature(self._serial_port_ctrl, 0)
             #logging.debug("temp0 = %.2f" % temp0)
-            temp1 = TMP451.read_temperature(self._serial_port_ctrl)
+            temp1 = TMP451.read_chip_temperature(self._serial_port_ctrl)
             #logging.debug("temp1 = %.2f" % temp1)
-            voltage = INA260.read_voltage(self._serial_port_ctrl)
+            #voltage = INA260.read_voltage(self._serial_port_ctrl)
             #logging.debug("voltage = %.2f" % voltage)
-            current = INA260.read_current(self._serial_port_ctrl)
+            #current = INA260.read_current(self._serial_port_ctrl)
             #logging.debug("current = %.2f" % current)
-            power = INA260.read_power(self._serial_port_ctrl)
+            #power = INA260.read_power(self._serial_port_ctrl)
             #logging.debug("power = %.2f" % power)
         except Exception as e:
             logging.error(f"Error reading temperature and voltage: {e}")
 
         return {
-            "temp": [temp0, temp1, None, None],
-            "voltage": [voltage, current, power, None],
+            "temp": [temp0, None, None, None],
+            "asic_temp": [temp1, None, None, None],
+            "voltage": [None, None, None, None],
         }
 
     def set_led(self, state):
@@ -90,14 +91,11 @@ class EmberoneHardware(board.Board):
         time.sleep(0.5)
 
     def board_init(self):
-        DS4432U.ramp_voltage(self._serial_port_ctrl, self.asic_voltage)
-        INA260.init(self._serial_port_ctrl)
-        #pass
+        pass
 
     def shutdown(self):
         # disable buck converter
         logging.info("shutdown miner ...")
-        DS4432U.enable_vreg(self._serial_port_ctrl, 0)
 
     def serial_port(self):
         return self._serial_port_asic
